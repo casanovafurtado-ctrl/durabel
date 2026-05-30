@@ -1,11 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  serverExternalPackages: ['googleapis'],
   images: {
     domains: ['lh3.googleusercontent.com'],
-  },
-  experimental: {
-    serverComponentsExternalPackages: ['googleapis'],
   },
 };
 
