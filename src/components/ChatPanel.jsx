@@ -1,0 +1,294 @@
+'use client';
+
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, Mic, MicOff, Sparkles, Volume2, VolumeX } from 'lucide-react';
+
+const QUICK_ACTIONS = [
+  '📅 O que tenho hoje?',
+  '✅ Minhas tarefas pendentes',
+  '📝 Nova proposta técnica',
+  '📧 Redigir e-mail profissional',
+  '📋 Agendar reunião',
+  '📊 Resumo da semana',
+];
+
+function Message({ msg }) {
+  const isUser = msg.role === 'user';
+  return (
+    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end mb-4 animate-slide-up`}>
+      {!isUser && (
+        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
+          style={{
+            background: 'linear-gradient(135deg, #0055CC, #00BBFF)',
+            color: 'white', fontFamily: 'Syne, sans-serif',
+          }}>D</div>
+      )}
+      <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+        isUser
+          ? 'rounded-br-sm'
+          : 'rounded-bl-sm'
+      }`} style={{
+        background: isUser
+          ? 'linear-gradient(135deg, #0055CC22, #00BBFF18)'
+          : 'var(--card)',
+        border: `1px solid ${isUser ? '#0077FF44' : 'var(--border)'}`,
+        color: 'var(--text)',
+      }}>
+        {msg.content}
+      </div>
+    </div>
+  );
+}
+
+export default function ChatPanel() {
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: 'Olá, Felipe! 👋 Sou a DURABEL, sua secretária executiva. Já estou conectada ao seu Google Calendar e Tarefas.\n\nComo posso ajudá-lo agora?',
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [speaking, setSpeaking] = useState(false);
+  const [voiceError, setVoiceError] = useState('');
+  const audioRef = useRef(null);
+  const bottomRef = useRef(null);
+  const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
+
+  // Speech Recognition
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.lang = 'pt-BR';
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(prev => prev + transcript);
+        setListening(false);
+      };
+      recognitionRef.current.onerror = () => setListening(false);
+      recognitionRef.current.onend = () => setListening(false);
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return;
+    if (listening) {
+      recognitionRef.current.stop();
+      setListening(false);
+    } else {
+      recognitionRef.current.start();
+      setListening(true);
+    }
+  };
+
+  const sendMessage = useCallback(async (text) => {
+    const content = text || input.trim();
+    if (!content || loading) return;
+
+    setInput('');
+    setLoading(true);
+
+    const newMessages = [...messages, { role: 'user', content }];
+    setMessages(newMessages);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+      const data = await res.json();
+
+      if (data.content) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
+        // Reproduz voz se habilitado
+        if (voiceEnabled) {
+          try {
+            setSpeaking(true);
+            const voiceRes = await fetch('/api/voice', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: data.content.slice(0, 500) }),
+            });
+            if (voiceRes.ok) {
+              const blob = await voiceRes.blob();
+              const url = URL.createObjectURL(blob);
+              const audio = new Audio(url);
+              audioRef.current = audio;
+              audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
+              audio.onerror = () => setSpeaking(false);
+              await audio.play();
+            } else {
+              setSpeaking(false);
+              // Créditos esgotados ou erro — desativa voz e avisa
+              const errData = await voiceRes.json().catch(() => ({}));
+              if (voiceRes.status === 401 || voiceRes.status === 429) {
+                setVoiceEnabled(false);
+                setVoiceError(voiceRes.status === 429
+                  ? '🔇 Créditos ElevenLabs esgotados. Voz desativada.'
+                  : '🔇 Chave ElevenLabs inválida. Verifique em Configurações.');
+                setTimeout(() => setVoiceError(''), 5000);
+              }
+            }
+          } catch { setSpeaking(false); }
+        }
+      } else {
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: 'Desculpe, tive um problema na conexão. Tente novamente.',
+        }]);
+      }
+    } catch {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Erro de conexão. Verifique sua internet e tente novamente.',
+      }]);
+    }
+    setLoading(false);
+  }, [input, messages, loading]);
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
+        {messages.map((msg, i) => <Message key={i} msg={msg} />)}
+
+        {loading && (
+          <div className="flex gap-3 items-end mb-4">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #0055CC, #00BBFF)', color: 'white' }}>
+              <Sparkles size={14} />
+            </div>
+            <div className="px-4 py-3 rounded-2xl rounded-bl-sm"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+              <div className="flex gap-1.5 items-center">
+                {[0,1,2].map(i => (
+                  <div key={i} className={`typing-dot w-2 h-2 rounded-full`}
+                    style={{ background: 'var(--blue)' }} />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Voice error toast */}
+      {voiceError && (
+        <div className="mx-4 mb-2 px-4 py-2.5 rounded-xl text-xs font-medium animate-fade-in flex items-center gap-2"
+          style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#FCA5A5' }}>
+          {voiceError}
+          <button onClick={() => setVoiceError('')} style={{ marginLeft: 'auto', color: '#F87171' }}>✕</button>
+        </div>
+      )}
+
+      {/* Quick Actions */}
+      {messages.length <= 2 && (
+        <div className="px-4 pb-3">
+          <div className="flex gap-2 flex-wrap">
+            {QUICK_ACTIONS.map(action => (
+              <button key={action}
+                onClick={() => sendMessage(action)}
+                className="text-xs px-3 py-1.5 rounded-full transition-all hover:scale-105"
+                style={{
+                  background: 'var(--card)', border: '1px solid var(--border)',
+                  color: 'var(--muted)', fontFamily: 'Inter, sans-serif',
+                }}>
+                {action}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input */}
+      <div className="px-4 pb-6 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="flex gap-2 items-end">
+          <div className="flex-1 relative">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              placeholder={listening ? '🎙 Ouvindo...' : 'Fale com a DURABEL...'}
+              rows={1}
+              className="w-full resize-none rounded-2xl px-4 py-3 text-sm transition-all"
+              style={{
+                background: 'var(--card)', border: '1px solid var(--border)',
+                color: listening ? 'var(--neon)' : 'var(--text)',
+                fontFamily: 'Inter, sans-serif', maxHeight: '120px', overflow: 'auto',
+                lineHeight: '1.5',
+              }}
+              onInput={e => {
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+              }}
+            />
+          </div>
+
+          {/* Voice toggle button */}
+          <button onClick={() => {
+            if (speaking && audioRef.current) { audioRef.current.pause(); setSpeaking(false); }
+            setVoiceEnabled(v => !v);
+          }}
+            className="w-11 h-11 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+            style={{
+              background: voiceEnabled ? 'rgba(124,58,237,0.15)' : 'var(--card)',
+              border: `1px solid ${voiceEnabled ? '#7C3AED44' : 'var(--border)'}`,
+              color: voiceEnabled ? (speaking ? '#A78BFA' : '#7C3AED') : 'var(--dim)',
+              boxShadow: speaking ? '0 0 15px rgba(124,58,237,0.4)' : 'none',
+            }}>
+            {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </button>
+
+          {/* Mic button */}
+          <button onClick={toggleListening}
+            className="w-11 h-11 rounded-full flex items-center justify-center transition-all flex-shrink-0"
+            style={{
+              background: listening ? 'rgba(0, 187, 255, 0.15)' : 'var(--card)',
+              border: `1px solid ${listening ? 'var(--neon)' : 'var(--border)'}`,
+              color: listening ? 'var(--neon)' : 'var(--muted)',
+              boxShadow: listening ? '0 0 15px rgba(0, 187, 255, 0.3)' : 'none',
+            }}>
+            {listening ? <MicOff size={18} /> : <Mic size={18} />}
+          </button>
+
+          {/* Send button */}
+          <button
+            onClick={() => sendMessage()}
+            disabled={!input.trim() || loading}
+            className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+            style={{
+              background: input.trim() && !loading
+                ? 'linear-gradient(135deg, #0055CC, #0099FF)'
+                : 'var(--card)',
+              border: `1px solid ${input.trim() && !loading ? 'transparent' : 'var(--border)'}`,
+              color: input.trim() && !loading ? 'white' : 'var(--dim)',
+              boxShadow: input.trim() && !loading ? '0 4px 15px rgba(0, 119, 255, 0.4)' : 'none',
+              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
+            }}>
+            <Send size={16} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
