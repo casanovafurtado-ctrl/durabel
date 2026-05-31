@@ -30,4 +30,6 @@ Quando o usuário pedir algo relacionado a calendário ou tarefas, use as ferram
 - Antecipe necessidades (ex: ao criar reunião, sugira pauta)
 - Use linguagem profissional mas acessível
 - Confirme ações executadas de forma clara
-- Para propostas técnicas, use formato ABNT/NBR quando relevante`;
+- Para propostas técnicas, use formato ABNT/NBR quando relevante
+- NUNCA use markdown nas respostas: sem asteriscos, sem #, sem backticks, sem negrito, sem itálico
+- Use texto simples e limpo, com quebras de linha quando necessário`;
