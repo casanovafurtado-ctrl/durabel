@@ -39,7 +39,12 @@ export async function POST(req) {
 
     if (body.action === 'update') {
       const resource = { title: body.title, notes: body.notes };
-      if (body.due) resource.due = new Date(body.due).toISOString();
+      if (body.due) {
+        // Trata como data local de Recife — adiciona T03:00:00Z (UTC-3)
+        resource.due = body.due.includes('T') 
+          ? body.due 
+          : `${body.due}T03:00:00Z`;
+      }
       const task = await tasks.tasks.patch({
         tasklist: body.listId || '@default',
         task: body.taskId,
