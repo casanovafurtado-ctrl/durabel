@@ -159,8 +159,8 @@ export default function MinutesPanel() {
   useEffect(() => {
     async function load() {
       try {
-        const r = await window.storage?.get('meeting_minutes');
-        if (r) setMinutes(JSON.parse(r.value));
+        const saved = localStorage.getItem('durabel_minutes');
+        if (saved) setMinutes(JSON.parse(saved));
       } catch {}
     }
     load();
@@ -168,48 +168,63 @@ export default function MinutesPanel() {
 
   const saveMinutes = async (updated) => {
     setMinutes(updated);
-    try { await window.storage?.set('meeting_minutes', JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem('durabel_minutes', JSON.stringify(updated)); } catch {}
   };
 
   const startLiveRecognition = () => {
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
     if (!SR) return;
 
-    // Usa blocos curtos de 8s — Safari iOS não suporta continuous por muito tempo
+    let chunkCount = 0;
+
     const startChunk = () => {
       if (mediaRecorderRef.current?.state !== 'recording') return;
 
+      chunkCount++;
       const rec = new SR();
       rec.lang = 'pt-BR';
-      rec.continuous = false; // false = mais estável no Safari iOS
-      rec.interimResults = false;
+      rec.continuous = false;
+      rec.interimResults = true;
       rec.maxAlternatives = 1;
 
+      let chunkFinal = '';
+
+      rec.onstart = () => {
+        setLiveTranscript(liveTranscriptRef.current + ' 🎙');
+      };
+
       rec.onresult = (e) => {
-        const text = e.results[0]?.[0]?.transcript || '';
-        if (text.trim()) {
-          liveTranscriptRef.current += text + ' ';
-          setLiveTranscript(liveTranscriptRef.current);
+        let final = '';
+        let interim = '';
+        for (let i = 0; i < e.results.length; i++) {
+          if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
+          else interim += e.results[i][0].transcript;
         }
+        if (final) chunkFinal = final;
+        setLiveTranscript(liveTranscriptRef.current + chunkFinal + interim + ' 🎙');
       };
 
       rec.onend = () => {
-        // Inicia próximo chunk após 200ms se ainda gravando
+        // Salva o que foi capturado neste chunk
+        if (chunkFinal.trim()) {
+          liveTranscriptRef.current += chunkFinal;
+        }
+        setLiveTranscript(liveTranscriptRef.current);
+        // Reinicia imediatamente
         if (mediaRecorderRef.current?.state === 'recording') {
-          setTimeout(startChunk, 200);
+          setTimeout(startChunk, 100);
         }
       };
 
       rec.onerror = (e) => {
         if (e.error === 'not-allowed') return;
-        // Em qualquer erro, tenta próximo chunk após 500ms
         if (mediaRecorderRef.current?.state === 'recording') {
-          setTimeout(startChunk, 500);
+          setTimeout(startChunk, 300);
         }
       };
 
       liveRecognitionRef.current = rec;
-      try { rec.start(); } catch { setTimeout(startChunk, 500); }
+      try { rec.start(); } catch { setTimeout(startChunk, 300); }
     };
 
     startChunk();
