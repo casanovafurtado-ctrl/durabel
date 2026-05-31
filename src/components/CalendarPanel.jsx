@@ -1,9 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide-react';
 
-function EventCard({ event, onDelete }) {
+function EventCard({ event, onDelete, onEdit }) {
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({
+    title: event.title,
+    location: event.location || '',
+    description: event.description || '',
+  });
+
   const start = new Date(event.start);
   const isToday = new Date().toDateString() === start.toDateString();
   const isTomorrow = new Date(Date.now() + 86400000).toDateString() === start.toDateString();
@@ -14,6 +22,46 @@ function EventCard({ event, onDelete }) {
   const timeLabel = event.start.includes('T')
     ? start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : 'Dia inteiro';
+
+  const handleSaveEdit = async () => {
+    await onEdit && onEdit(event.id, form);
+    event.title = form.title;
+    event.location = form.location;
+    event.description = form.description;
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="rounded-xl p-4 mb-3"
+        style={{ background: 'var(--card)', border: '1px solid rgba(0,119,255,0.4)' }}>
+        <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+          placeholder="Título *"
+          className="w-full rounded-xl px-3 py-2 text-sm mb-2"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
+          placeholder="Local"
+          className="w-full rounded-xl px-3 py-2 text-sm mb-2"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+          placeholder="Descrição / Pauta" rows={2}
+          className="w-full rounded-xl px-3 py-2 text-sm resize-none mb-3"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <div className="flex gap-2">
+          <button onClick={() => setEditing(false)}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+            Cancelar
+          </button>
+          <button onClick={handleSaveEdit}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold text-white"
+            style={{ background: 'var(--blue)' }}>
+            Salvar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl p-4 mb-3"
@@ -33,8 +81,13 @@ function EventCard({ event, onDelete }) {
             </div>
             <div className="text-xs" style={{ color: 'var(--muted)' }}>{timeLabel}</div>
           </div>
-          <button onClick={() => onDelete && onDelete(event.id)}
+          <button onClick={() => setEditing(true)}
             className="w-7 h-7 rounded-lg flex items-center justify-center ml-1"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+            <Pencil size={12} />
+          </button>
+          <button onClick={() => onDelete && onDelete(event.id)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
             <Trash2 size={12} />
           </button>
@@ -124,6 +177,16 @@ export default function CalendarPanel() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
+  const editEvent = async (eventId, form) => {
+    try {
+      await fetch('/api/calendar', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId, ...form }),
+      });
+    } catch {}
+  };
+
   const deleteEvent = async (eventId) => {
     try {
       await fetch(`/api/calendar?eventId=${eventId}`, { method: 'DELETE' });
@@ -186,7 +249,7 @@ export default function CalendarPanel() {
                 <p className="text-xs font-bold tracking-widest mb-2" style={{ color: 'var(--neon)', letterSpacing: '0.1em' }}>
                   HOJE · {today.length}
                 </p>
-                {today.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} />)}
+                {today.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} onEdit={editEvent} />)}
               </>
             )}
             {upcoming.length > 0 && (
@@ -194,7 +257,7 @@ export default function CalendarPanel() {
                 <p className="text-xs font-bold tracking-widest mb-2 mt-4" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
                   PRÓXIMOS · {upcoming.length}
                 </p>
-                {upcoming.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} />)}
+                {upcoming.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} onEdit={editEvent} />)}
               </>
             )}
           </>
