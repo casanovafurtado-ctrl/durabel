@@ -238,15 +238,20 @@ export default function MinutesPanel() {
     setGenerating(true);
 
     try {
+      // Pega chave do localStorage — igual ao ChatPanel
+      const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
+      const anthropicKey = localSettings.anthropic_key || '';
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          anthropicKey,
           messages: [{
             role: 'user',
             content: `Gere uma ata de reunião profissional em português com base nesta transcrição.
 Inclua: Título, Data (${new Date().toLocaleDateString('pt-BR')}), Participantes (se mencionados), Pauta, Pontos Discutidos, Decisões Tomadas e Próximas Ações com responsáveis e prazos.
-Use formatação clara com seções bem definidas.
+Use formatação clara com seções bem definidas. Sem asteriscos ou markdown.
 
 TRANSCRIÇÃO:
 ${transcript}`,
