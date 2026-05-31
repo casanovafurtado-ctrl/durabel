@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, DollarSign, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { TrendingUp, DollarSign, FileText, CheckCircle, XCircle, Clock, Download } from 'lucide-react';
+import { exportFinancePDF } from '@/lib/pdfExport';
 
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -96,11 +97,18 @@ export default function FinancePanel() {
           <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Dashboard</h2>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>Desempenho comercial DURAR</p>
         </div>
-        <button onClick={() => setShowForm(s => !s)}
-          className="btn-glow h-9 px-4 rounded-xl text-white text-sm flex items-center gap-1.5"
-          style={{ fontFamily: 'Inter, sans-serif' }}>
-          <FileText size={14} /> Registrar
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => exportFinancePDF(proposals)}
+            className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-sm"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--blue)', fontFamily: 'Inter, sans-serif' }}>
+            <Download size={14} /> PDF
+          </button>
+          <button onClick={() => setShowForm(s => !s)}
+            className="btn-glow h-9 px-4 rounded-xl text-white text-sm flex items-center gap-1.5"
+            style={{ fontFamily: 'Inter, sans-serif' }}>
+            <FileText size={14} /> Registrar
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
