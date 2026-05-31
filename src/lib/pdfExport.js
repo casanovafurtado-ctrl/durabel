@@ -136,10 +136,10 @@ export function exportMinutePDF(minute) {
         <!-- Logo area -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
           <div>
-            <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#fff;letter-spacing:0.05em;">
+            <div style="font-family:'Arial Black',Arial,sans-serif;font-size:26px;font-weight:900;color:#fff;letter-spacing:0.03em;">
               DUR<span style="color:#00BBFF;">AR</span>
             </div>
-            <div style="font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:0.25em;margin-top:2px;">
+            <div style="font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:0.25em;margin-top:2px;font-family:Arial,sans-serif;font-weight:600;">
               CONSULTORIA E ENGENHARIA
             </div>
           </div>
@@ -200,7 +200,8 @@ export function exportMinutePDF(minute) {
         </div>
       </div>
 
-      <!-- Signature area -->
+      <!-- Signature area — only if no named participants in content -->
+      ${!minute.content?.match(/Bárbara|Avelar|Síndic|Subsíndic|Participante[s]?:/i) ? `
       <div style="padding:30px 50px 40px;background:#fff;">
         <div style="display:flex;gap:60px;margin-top:20px;">
           ${['Responsável Técnico', 'Participante'].map(role => `
@@ -211,7 +212,7 @@ export function exportMinutePDF(minute) {
             </div>
           `).join('')}
         </div>
-      </div>
+      </div>` : ''}
     </div>
   `;
   createPrintWindow(html);
