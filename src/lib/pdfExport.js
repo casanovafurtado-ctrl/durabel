@@ -30,44 +30,75 @@ function injectPrintStyles() {
 }
 
 function createPrintWindow(html) {
-  const win = window.open('', '_blank', 'width=900,height=700');
-  win.document.write(`
-    <!DOCTYPE html>
-    <html lang="pt-BR">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>DURAR — Exportar PDF</title>
-      <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', sans-serif; background: #fff; color: #1A1A2E; }
-        @page { margin: 0; size: A4; }
-        @media print {
-          body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-          .no-print { display: none !important; }
-          .page-break { page-break-after: always; }
-        }
-        .print-btn {
-          position: fixed; top: 20px; right: 20px; z-index: 9999;
-          background: linear-gradient(135deg, #0055CC, #0099FF);
-          color: white; border: none; padding: 12px 24px; border-radius: 8px;
-          font-family: 'Inter', sans-serif; font-weight: 600; font-size: 14px;
-          cursor: pointer; box-shadow: 0 4px 15px rgba(0,119,255,0.4);
-          display: flex; align-items: center; gap: 8px;
-        }
-        .print-btn:hover { transform: translateY(-1px); }
-      </style>
-    </head>
-    <body>
-      <button class="print-btn no-print" onclick="window.print()">
-        🖨️ Imprimir / Salvar PDF
-      </button>
-      ${html}
-    </body>
-    </html>
-  `);
-  win.document.close();
+  // Remove modal anterior se existir
+  const existing = document.getElementById('durabel-pdf-modal');
+  if (existing) existing.remove();
+
+  // Cria modal overlay dentro do app — sem abrir nova aba
+  const modal = document.createElement('div');
+  modal.id = 'durabel-pdf-modal';
+  modal.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999;
+    background: #fff; display: flex; flex-direction: column;
+    font-family: 'Inter', sans-serif;
+  `;
+
+  modal.innerHTML = `
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+      #durabel-pdf-modal * { box-sizing: border-box; }
+      #durabel-pdf-modal .pdf-topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px 16px; background: #060B18;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        flex-shrink: 0; position: sticky; top: 0; z-index: 10;
+      }
+      #durabel-pdf-modal .pdf-content {
+        flex: 1; overflow-y: auto; background: #f5f5f5;
+        display: flex; justify-content: center; padding: 20px 16px;
+      }
+      #durabel-pdf-modal .pdf-inner {
+        background: white; width: 100%; max-width: 210mm;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      }
+      #durabel-pdf-modal .btn-back {
+        background: rgba(255,255,255,0.1); color: white;
+        border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px;
+        border-radius: 10px; font-size: 14px; font-weight: 600;
+        cursor: pointer; display: flex; align-items: center; gap: 6px;
+        font-family: 'Inter', sans-serif;
+      }
+      #durabel-pdf-modal .btn-print {
+        background: linear-gradient(135deg, #0055CC, #0099FF);
+        color: white; border: none; padding: 8px 16px;
+        border-radius: 10px; font-size: 14px; font-weight: 600;
+        cursor: pointer; box-shadow: 0 2px 10px rgba(0,119,255,0.4);
+        font-family: 'Inter', sans-serif;
+      }
+      @media print {
+        #durabel-pdf-modal .pdf-topbar { display: none !important; }
+        #durabel-pdf-modal { position: static !important; }
+        #durabel-pdf-modal .pdf-content { padding: 0 !important; }
+        body > *:not(#durabel-pdf-modal) { display: none !important; }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      }
+    </style>
+    <div class="pdf-topbar">
+      <span style="color:rgba(255,255,255,0.6);font-size:13px;font-weight:600;">DURAR — Visualização PDF</span>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn-print" onclick="window.print()">🖨️ Salvar PDF</button>
+        <button onclick="document.getElementById('durabel-pdf-modal').remove()"
+          style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;width:34px;height:34px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          ✕
+        </button>
+      </div>
+    </div>
+    <div class="pdf-content">
+      <div class="pdf-inner">${html}</div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
 }
 
 // ─────────────────────────────────────────────────────────
