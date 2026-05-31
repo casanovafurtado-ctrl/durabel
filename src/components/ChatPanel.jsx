@@ -3,6 +3,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Mic, MicOff, Sparkles, Volume2, VolumeX } from 'lucide-react';
 
+// Remove markdown symbols from AI responses
+function cleanMarkdown(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')      // **negrito** → negrito
+    .replace(/\*(.+?)\*/g, '$1')            // *itálico* → itálico
+    .replace(/#{1,6}\s/g, '')               // # Título → Título
+    .replace(/`{3}[\s\S]*?`{3}/g, '')      // ```código``` → remove
+    .replace(/`(.+?)`/g, '$1')              // `código` → código
+    .replace(/^[-•]\s/gm, '• ')            // - item → • item
+    .replace(/^\d+\.\s/gm, (m) => m)     // 1. item → mantém
+    .trim();
+}
+
 const QUICK_ACTIONS = [
   '📅 O que tenho hoje?',
   '✅ Minhas tarefas pendentes',
@@ -111,7 +124,7 @@ export default function ChatPanel() {
       const data = await res.json();
 
       if (data.content) {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.content }]);
+        setMessages(prev => [...prev, { role: 'assistant', content: cleanMarkdown(data.content) }]);
         // Reproduz voz se habilitado
         if (voiceEnabled) {
           try {
@@ -125,10 +138,20 @@ export default function ChatPanel() {
               const blob = await voiceRes.blob();
               const url = URL.createObjectURL(blob);
               const audio = new Audio(url);
+              audio.volume = 1.0;
               audioRef.current = audio;
               audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
-              audio.onerror = () => setSpeaking(false);
-              await audio.play();
+              audio.onerror = (e) => { console.error('Audio error:', e); setSpeaking(false); };
+              // Tenta reproduzir — contorna política de autoplay do navegador
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                playPromise.catch(err => {
+                  console.warn('Autoplay bloqueado:', err);
+                  setSpeaking(false);
+                  setVoiceError('🔇 Clique na tela primeiro para ativar o áudio.');
+                  setTimeout(() => setVoiceError(''), 4000);
+                });
+              }
             } else {
               setSpeaking(false);
               // Créditos esgotados ou erro — desativa voz e avisa
