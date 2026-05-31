@@ -7,19 +7,23 @@ function EventCard({ event, onDelete, onEdit }) {
   const [editing, setEditing] = useState(false);
   const parseDate = (dateStr) => {
     if (!dateStr) return '';
-    // Se for ISO string com timezone, converte para local
     if (dateStr.includes('T')) {
+      // Converte para fuso de Recife (UTC-3)
       const d = new Date(dateStr);
-      return d.toLocaleDateString('pt-BR', { timeZone: 'America/Recife' })
-        .split('/').reverse().join('-'); // DD/MM/YYYY → YYYY-MM-DD
+      const recife = new Date(d.toLocaleString('en-US', { timeZone: 'America/Recife' }));
+      const y = recife.getFullYear();
+      const m = String(recife.getMonth() + 1).padStart(2, '0');
+      const day = String(recife.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     }
-    return dateStr; // já está em YYYY-MM-DD
+    return dateStr;
   };
 
   const parseTime = (dateStr) => {
     if (!dateStr || !dateStr.includes('T')) return '';
     const d = new Date(dateStr);
-    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
+    const recife = new Date(d.toLocaleString('en-US', { timeZone: 'America/Recife' }));
+    return `${String(recife.getHours()).padStart(2, '0')}:${String(recife.getMinutes()).padStart(2, '0')}`;
   };
 
   const [form, setForm] = useState({
@@ -228,11 +232,11 @@ export default function CalendarPanel() {
         body: JSON.stringify({
           eventId,
           title: form.title,
-          location: form.location,
-          description: form.description,
+          location: form.location || '',
+          description: form.description || '',
           date: form.date,
           time: form.time,
-          endTime: form.endTime,
+          endTime: form.endTime || '',
         }),
       });
 
