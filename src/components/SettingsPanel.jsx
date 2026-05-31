@@ -205,18 +205,21 @@ function AccordionSection({ section, settings, onChange, isAPI }) {
     setSaving(true);
     try {
       const fieldsToSave = Object.fromEntries(section.fields.map(f => [f.key, settings[f.key] || '']));
-      const res = await fetch('/api/settings', {
+      
+      // Salva no localStorage imediatamente — nunca perde
+      const current = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
+      const updated = { ...current, ...Object.fromEntries(Object.entries(fieldsToSave).filter(([,v]) => v)) };
+      localStorage.setItem('durabel_settings', JSON.stringify(updated));
+
+      // Também envia para servidor (melhor esforço)
+      await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fields: fieldsToSave }),
-      });
-      if (res.ok) {
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
-      } else {
-        setError(true);
-        setTimeout(() => setError(false), 3000);
-      }
+      }).catch(() => {});
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch {
       setError(true);
       setTimeout(() => setError(false), 3000);
@@ -306,9 +309,20 @@ export default function SettingsPanel() {
   useEffect(() => {
     async function load() {
       try {
+        // Carrega do localStorage primeiro — instantâneo e persistente
+        const local = localStorage.getItem('durabel_settings');
+        if (local) {
+          setSettings(JSON.parse(local));
+          setLoading(false);
+          return;
+        }
+        // Fallback para servidor
         const res = await fetch('/api/settings');
         const data = await res.json();
-        setSettings(data.settings || {});
+        if (data.settings) {
+          setSettings(data.settings);
+          localStorage.setItem('durabel_settings', JSON.stringify(data.settings));
+        }
       } catch {}
       setLoading(false);
     }
