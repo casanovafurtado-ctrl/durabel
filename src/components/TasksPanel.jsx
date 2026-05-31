@@ -51,7 +51,7 @@ function TaskItem({ task, onComplete, onDelete, onRefresh }) {
       task.title = editTitle;
       task.notes = editNotes;
       task.due = editDue ? new Date(editDue).toISOString() : null;
-      onRefresh && setTimeout(() => onRefresh(), 800);
+      // Não recarrega — atualização local já reflete a mudança
     }
     setEditing(false);
   };
