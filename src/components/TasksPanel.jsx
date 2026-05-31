@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, X, Save } from 'lucide-react';
 
 const PRIORITIES = ['alta', 'média', 'baixa'];
 const PRIORITY_COLORS = { alta: '#EF4444', média: '#F59E0B', baixa: '#10B981' };
 
-function TaskItem({ task, onComplete }) {
+function TaskItem({ task, onComplete, onDelete }) {
   const [done, setDone] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editNotes, setEditNotes] = useState(task.notes || '');
 
   const handleComplete = async () => {
     setDone(true);
@@ -18,6 +21,52 @@ function TaskItem({ task, onComplete }) {
     });
     setTimeout(() => onComplete(task.id), 600);
   };
+
+  const handleDelete = async () => {
+    await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', taskId: task.id, listId: task.listId }),
+    });
+    onDelete(task.id);
+  };
+
+  const handleSaveEdit = async () => {
+    await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update', taskId: task.id, listId: task.listId, title: editTitle, notes: editNotes }),
+    });
+    task.title = editTitle;
+    task.notes = editNotes;
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="p-4 rounded-xl mb-3" style={{ background: 'var(--card)', border: '1px solid var(--blue)44' }}>
+        <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
+          className="w-full rounded-xl px-3 py-2 text-sm mb-2"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)}
+          placeholder="Observações..." rows={2}
+          className="w-full rounded-xl px-3 py-2 text-sm resize-none mb-3"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <div className="flex gap-2">
+          <button onClick={() => setEditing(false)}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+            Cancelar
+          </button>
+          <button onClick={handleSaveEdit}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold text-white"
+            style={{ background: 'var(--blue)' }}>
+            Salvar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`flex gap-3 items-start p-4 rounded-xl mb-3 transition-all ${done ? 'opacity-40 scale-95' : ''}`}
@@ -35,20 +84,24 @@ function TaskItem({ task, onComplete }) {
         {task.notes && (
           <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--muted)' }}>{task.notes}</p>
         )}
-        <div className="flex gap-2 mt-2 flex-wrap">
-          {task.due && (
-            <span className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(0,119,255,0.1)', color: 'var(--blue)', border: '1px solid rgba(0,119,255,0.2)' }}>
-              📅 {new Date(task.due).toLocaleDateString('pt-BR')}
-            </span>
-          )}
-          {task.listTitle && task.listTitle !== 'My Tasks' && (
-            <span className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
-              {task.listTitle}
-            </span>
-          )}
-        </div>
+        {task.due && (
+          <span className="text-xs px-2 py-0.5 rounded-full mt-2 inline-block"
+            style={{ background: 'rgba(0,119,255,0.1)', color: 'var(--blue)', border: '1px solid rgba(0,119,255,0.2)' }}>
+            📅 {new Date(task.due).toLocaleDateString('pt-BR')}
+          </span>
+        )}
+      </div>
+      <div className="flex gap-1 flex-shrink-0">
+        <button onClick={() => setEditing(true)}
+          className="w-7 h-7 rounded-lg flex items-center justify-center"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+          <Pencil size={12} />
+        </button>
+        <button onClick={handleDelete}
+          className="w-7 h-7 rounded-lg flex items-center justify-center"
+          style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
+          <Trash2 size={12} />
+        </button>
       </div>
     </div>
   );
@@ -160,7 +213,7 @@ export default function TasksPanel() {
             <p className="text-sm mt-1" style={{ color: 'var(--dim)' }}>Peça para a DURABEL criar uma!</p>
           </div>
         ) : (
-          tasks.map(t => <TaskItem key={t.id} task={t} onComplete={removeTask} />)
+          tasks.map(t => <TaskItem key={t.id} task={t} onComplete={removeTask} onDelete={removeTask} />)
         )}
       </div>
 
