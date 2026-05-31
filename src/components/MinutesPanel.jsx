@@ -331,17 +331,18 @@ ${transcript}`,
         {/* REVIEW */}
         {step === 'review' && (
           <div className="animate-fade-in">
+
+            {/* Áudio player */}
             <div className="rounded-xl p-4 mb-4"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-bold tracking-widest" style={{ color: 'var(--muted)' }}>
                   ÁUDIO GRAVADO
                 </p>
-                <span className="text-xs" style={{ color: 'var(--blue)' }}>
+                <span className="text-xs font-semibold" style={{ color: 'var(--blue)' }}>
                   {formatTime(seconds)}
                 </span>
               </div>
-
               {audioBlob && (
                 <audio controls className="w-full mt-2" style={{ height: '36px' }}>
                   <source src={URL.createObjectURL(audioBlob)} type={audioBlob.type} />
@@ -349,18 +350,7 @@ ${transcript}`,
               )}
             </div>
 
-            {transcript && (
-              <div className="rounded-xl p-4 mb-4"
-                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-                <p className="text-xs font-bold tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
-                  TRANSCRIÇÃO
-                </p>
-                <p className="text-sm leading-relaxed" style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
-                  {transcript}
-                </p>
-              </div>
-            )}
-
+            {/* Erro */}
             {error && (
               <div className="rounded-xl px-4 py-2 mb-4 text-xs"
                 style={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.3)' }}>
@@ -368,34 +358,79 @@ ${transcript}`,
               </div>
             )}
 
-            <div className="flex gap-2 mb-3">
-              <button onClick={reset}
-                className="flex-1 py-3 rounded-xl text-sm font-semibold"
-                style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
-                Descartar
-              </button>
-              {!transcript && (
-                <button onClick={transcribeAudio} disabled={generating || !audioBlob}
-                  className="flex-1 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-                  style={{ background: 'rgba(0,119,255,0.15)', border: '1px solid rgba(0,119,255,0.3)', color: 'var(--blue)', fontFamily: 'Inter, sans-serif' }}>
-                  {generating ? <><Loader size={14} /> Transcrevendo...</> : '🎙 Transcrever'}
-                </button>
-              )}
-            </div>
+            {/* ETAPA 1: Transcrever — só aparece se ainda não transcreveu */}
+            {!transcript && (
+              <div className="mb-4">
+                <div className="rounded-xl px-4 py-3 mb-3"
+                  style={{ background: 'rgba(0,119,255,0.06)', border: '1px solid rgba(0,119,255,0.2)' }}>
+                  <p className="text-xs" style={{ color: 'var(--blue)' }}>
+                    📌 Passo 1 — Transcreva o áudio para continuar
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={reset} disabled={generating}
+                    className="py-3 px-4 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+                    Descartar
+                  </button>
+                  <button
+                    onClick={transcribeAudio}
+                    disabled={generating || !audioBlob}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                    style={{
+                      background: generating ? 'rgba(0,119,255,0.08)' : 'rgba(0,119,255,0.15)',
+                      border: '1px solid rgba(0,119,255,0.3)',
+                      color: 'var(--blue)',
+                      fontFamily: 'Inter, sans-serif',
+                      cursor: generating ? 'not-allowed' : 'pointer',
+                    }}>
+                    {generating
+                      ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Transcrevendo...</>
+                      : <><span>🎙</span> Transcrever Áudio</>
+                    }
+                  </button>
+                </div>
+              </div>
+            )}
 
-            <button onClick={generateMinute} disabled={generating || !transcript.trim()}
-              className="w-full btn-glow py-3 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2"
-              style={{ fontFamily: 'Inter, sans-serif', opacity: generating || !transcript.trim() ? 0.5 : 1 }}>
-              {generating
-                ? <><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> Gerando ata...</>
-                : <><FileText size={15} /> Gerar Ata com IA</>
-              }
-            </button>
+            {/* ETAPA 2: Transcrição feita — mostra texto e botão de gerar ata */}
+            {transcript && (
+              <>
+                <div className="rounded-xl p-4 mb-4"
+                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                  <p className="text-xs font-bold tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
+                    TRANSCRIÇÃO
+                  </p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
+                    {transcript}
+                  </p>
+                </div>
 
-            {!transcript && !generating && audioBlob && (
-              <p className="text-xs text-center mt-3" style={{ color: 'var(--dim)' }}>
-                Primeiro transcreva o áudio, depois gere a ata
-              </p>
+                <div className="rounded-xl px-4 py-3 mb-3"
+                  style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                  <p className="text-xs" style={{ color: '#10B981' }}>
+                    ✅ Passo 2 — Revise a transcrição e gere a ata
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button onClick={reset} disabled={generating}
+                    className="py-3 px-4 rounded-xl text-sm font-semibold"
+                    style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+                    Descartar
+                  </button>
+                  <button
+                    onClick={generateMinute}
+                    disabled={generating}
+                    className="flex-1 btn-glow py-3 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2"
+                    style={{ fontFamily: 'Inter, sans-serif', cursor: generating ? 'not-allowed' : 'pointer' }}>
+                    {generating
+                      ? <><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> Gerando ata...</>
+                      : <><FileText size={15} /> Gerar Ata com IA</>
+                    }
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
