@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useState } from 'react';
 import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide-react';
 
 function EventCard({ event, onDelete, onEdit }) {
