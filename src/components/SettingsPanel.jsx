@@ -195,11 +195,14 @@ function FieldInput({ field, value, onChange }) {
 function AccordionSection({ section, settings, onChange, isAPI }) {
   const [open, setOpen] = useState(section.id === 'anthropic' || section.id === 'profile');
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
 
   const hasValues = section.fields.some(f => settings[f.key]);
   const accentColor = isAPI ? section.color : section.color;
 
   const handleSave = async () => {
+    setSaving(true);
     try {
       const fieldsToSave = Object.fromEntries(section.fields.map(f => [f.key, settings[f.key] || '']));
       const res = await fetch('/api/settings', {
@@ -207,8 +210,18 @@ function AccordionSection({ section, settings, onChange, isAPI }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fields: fieldsToSave }),
       });
-      if (res.ok) { setSaved(true); setTimeout(() => setSaved(false), 2500); }
-    } catch {}
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 3000);
+      }
+    } catch {
+      setError(true);
+      setTimeout(() => setError(false), 3000);
+    }
+    setSaving(false);
   };
 
   return (
@@ -254,12 +267,27 @@ function AccordionSection({ section, settings, onChange, isAPI }) {
             <button onClick={handleSave}
               className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all"
               style={{
-                background: saved ? 'rgba(16,185,129,0.15)' : `linear-gradient(135deg, ${accentColor}CC, ${accentColor})`,
-                color: saved ? '#10B981' : 'white',
-                border: saved ? '1px solid #10B98144' : 'none',
+                background: saving
+                  ? 'rgba(255,255,255,0.08)'
+                  : saved
+                  ? 'rgba(16,185,129,0.15)'
+                  : error
+                  ? 'rgba(239,68,68,0.15)'
+                  : `linear-gradient(135deg, ${accentColor}CC, ${accentColor})`,
+                color: saving ? 'var(--muted)' : saved ? '#10B981' : error ? '#EF4444' : 'white',
+                border: saving ? '1px solid var(--border)' : saved ? '1px solid #10B98144' : error ? '1px solid #EF444444' : 'none',
                 fontFamily: 'Inter, sans-serif',
+                cursor: saving ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s',
               }}>
-              {saved ? <><CheckCircle2 size={15} /> Salvo!</> : <><Save size={15} /> Salvar</>}
+              {saving
+                  ? <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> Salvando...</>
+                  : saved
+                  ? <><CheckCircle2 size={15} /> Salvo com sucesso!</>
+                  : error
+                  ? <>⚠️ Erro ao salvar</>
+                  : <><Save size={15} /> Salvar</>
+                }
             </button>
           </div>
         </div>
