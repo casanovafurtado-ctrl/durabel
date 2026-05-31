@@ -72,6 +72,7 @@ export default function MinutesPanel() {
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
   const streamRef = useRef(null);
+  const wakeLockRef = useRef(null);
 
   useEffect(() => {
     async function load() {
@@ -127,6 +128,13 @@ export default function MinutesPanel() {
       setStep('recording');
       setSeconds(0);
 
+      // Mantém tela acesa durante gravação
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        }
+      } catch {}
+
       timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
 
     } catch (err) {
@@ -139,50 +147,90 @@ export default function MinutesPanel() {
     mediaRecorderRef.current?.stop();
     setStep('processing');
 
+    // Libera wake lock
+    try { wakeLockRef.current?.release(); wakeLockRef.current = null; } catch {}
+
     // Aguarda o blob ficar pronto
     setTimeout(() => setStep('review'), 1500);
   };
 
-  const transcribeAudio = async () => {
-    if (!audioBlob) return;
+  // Transcreve usando Web Speech API — gratuito, sem API key
+  const transcribeWithSpeech = () => {
+    const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+    if (!SR) {
+      setManualMode(true);
+      setError('Seu navegador não suporta transcrição. Digite o conteúdo abaixo.');
+      return;
+    }
+
     setGenerating(true);
     setError('');
 
-    try {
-      const base64 = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result.split(',')[1]);
-        reader.readAsDataURL(audioBlob);
-      });
+    const recognition = new SR();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
-      const res = await fetch('/api/transcribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audio: base64,
-          mimeType: audioBlob.type,
-          title: title || `Reunião ${new Date().toLocaleDateString('pt-BR')}`,
-          duration: seconds,
-        }),
-      });
+    let finalText = '';
+    let interimText = '';
 
-      const data = await res.json();
+    // Reproduz o áudio gravado enquanto transcreve
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
 
-      if (data.content) {
-        setTranscript(data.content);
-      } else if (data.manual) {
-        // Fallback — modo manual
-        setManualMode(true);
-        setError(data.message || 'Digite o conteúdo da reunião abaixo.');
-      } else {
-        setManualMode(true);
-        setError('Transcrição automática indisponível. Digite o conteúdo abaixo.');
+    recognition.onresult = (e) => {
+      interimText = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          finalText += e.results[i][0].transcript + ' ';
+        } else {
+          interimText += e.results[i][0].transcript;
+        }
       }
-    } catch (err) {
-      setManualMode(true);
-      setError('Erro na transcrição. Digite o conteúdo abaixo.');
-    }
-    setGenerating(false);
+      setTranscript(finalText + interimText);
+    };
+
+    recognition.onerror = (e) => {
+      if (e.error !== 'no-speech') {
+        recognition.stop();
+        audio.pause();
+        if (finalText.trim()) {
+          setTranscript(finalText.trim());
+        } else {
+          setManualMode(true);
+          setError('Não conseguiu transcrever. Digite o conteúdo abaixo.');
+        }
+      }
+      setGenerating(false);
+      URL.revokeObjectURL(audioUrl);
+    };
+
+    recognition.onend = () => {
+      audio.pause();
+      setGenerating(false);
+      URL.revokeObjectURL(audioUrl);
+      if (finalText.trim()) {
+        setTranscript(finalText.trim());
+      } else if (!manualMode) {
+        setManualMode(true);
+        setError('Nenhuma fala detectada. Digite o conteúdo abaixo.');
+      }
+    };
+
+    // Inicia reconhecimento e áudio juntos
+    recognition.start();
+    audio.play().catch(() => {
+      // Se não conseguir tocar o áudio, transcreve em silêncio
+    });
+
+    // Para quando o áudio terminar
+    audio.onended = () => recognition.stop();
+  };
+
+  const transcribeAudio = () => {
+    if (!audioBlob) return;
+    transcribeWithSpeech();
   };
 
   const generateMinute = async () => {
@@ -237,6 +285,7 @@ ${transcript}`,
     clearInterval(timerRef.current);
     mediaRecorderRef.current?.stop();
     streamRef.current?.getTracks().forEach(t => t.stop());
+    try { wakeLockRef.current?.release(); wakeLockRef.current = null; } catch {};
   };
 
   const deleteMinute = async (id) => {
@@ -312,7 +361,7 @@ ${transcript}`,
             <div className="rounded-xl px-4 py-3 mb-6 mx-4"
               style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
               <p className="text-xs" style={{ color: '#10B981' }}>
-                ✅ Pode apagar a tela — a gravação continua em segundo plano
+                ✅ Tela mantida acesa automaticamente durante a gravação
               </p>
             </div>
 
