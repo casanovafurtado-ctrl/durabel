@@ -1,9 +1,9 @@
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import Anthropic from '@anthropic-ai/sdk';
 import { listEvents, createEvent, listTasks, createTask, completeTask } from '@/lib/google';
 import { DURABEL_SYSTEM_PROMPT } from '@/lib/prompts';
 
-// Importa helper de settings
 async function getUserKey(email, field) {
   try {
     const { getUserSettings } = await import('@/app/api/settings/route');
@@ -16,12 +16,7 @@ const TOOLS = [
   {
     name: 'get_calendar_events',
     description: 'Lista os próximos eventos do Google Calendar do usuário',
-    input_schema: {
-      type: 'object',
-      properties: {
-        days_ahead: { type: 'number', description: 'Quantos dias à frente verificar (padrão: 7)' },
-      },
-    },
+    input_schema: { type: 'object', properties: { days_ahead: { type: 'number' } } },
   },
   {
     name: 'create_calendar_event',
@@ -63,10 +58,7 @@ const TOOLS = [
     description: 'Marca uma tarefa como concluída',
     input_schema: {
       type: 'object',
-      properties: {
-        task_id: { type: 'string' },
-        list_id: { type: 'string' },
-      },
+      properties: { task_id: { type: 'string' }, list_id: { type: 'string' } },
       required: ['task_id'],
     },
   },
@@ -74,11 +66,12 @@ const TOOLS = [
 
 export async function POST(req) {
   try {
-    const session = await getServerSession();
+    // ✅ Passa authOptions para funcionar no Next.js 15
+    const session = await getServerSession(authOptions);
     const accessToken = session?.access_token;
     const email = session?.user?.email;
 
-    // Pega chave Anthropic — primeiro do usuário, depois do env
+    // Pega chave Anthropic — env do servidor primeiro, depois do usuário
     let anthropicKey = process.env.ANTHROPIC_API_KEY;
     if (email) {
       const userKey = await getUserKey(email, 'anthropic_key');
@@ -87,7 +80,7 @@ export async function POST(req) {
 
     if (!anthropicKey) {
       return Response.json({
-        content: 'Chave da IA não configurada. Vá em Config → Claude AI e adicione sua chave Anthropic.'
+        content: '⚠️ Chave da IA não configurada. Vá em Config → Chaves API → Claude AI e adicione sua chave Anthropic.',
       });
     }
 
@@ -96,33 +89,42 @@ export async function POST(req) {
 
     const contextMessage = {
       role: 'user',
-      content: `[Contexto: Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}]`,
+      content: `[Contexto: Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}. Email: ${email || 'não identificado'}]`,
     };
+
+    const apiMessages = [
+      contextMessage,
+      ...messages.map(m => ({ role: m.role, content: m.content }))
+    ];
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2048,
       system: DURABEL_SYSTEM_PROMPT,
       tools: accessToken ? TOOLS : [],
-      messages: [contextMessage, ...messages.map(m => ({ role: m.role, content: m.content }))],
+      messages: apiMessages,
     });
 
     let finalContent = '';
-    let toolResults = [];
+    const toolResults = [];
 
     for (const block of response.content) {
       if (block.type === 'text') {
         finalContent += block.text;
       } else if (block.type === 'tool_use' && accessToken) {
         const { name, input, id } = block;
-        let result;
+        let result = 'Ação executada.';
         try {
           if (name === 'get_calendar_events') {
             const events = await listEvents(accessToken, input.days_ahead || 7);
-            result = events.length > 0 ? JSON.stringify(events) : 'Nenhum evento encontrado.';
+            result = events.length > 0 ? JSON.stringify(events) : 'Nenhum evento encontrado no período.';
           } else if (name === 'create_calendar_event') {
-            await createEvent(accessToken, { title: input.title, date: input.date, time: input.time, endTime: input.end_time, location: input.location, description: input.description, attendees: input.attendees });
-            result = `Evento "${input.title}" criado no Google Calendar!`;
+            await createEvent(accessToken, {
+              title: input.title, date: input.date, time: input.time,
+              endTime: input.end_time, location: input.location,
+              description: input.description, attendees: input.attendees,
+            });
+            result = `Evento "${input.title}" criado com sucesso no Google Calendar!`;
           } else if (name === 'get_tasks') {
             const tasks = await listTasks(accessToken);
             result = tasks.length > 0 ? JSON.stringify(tasks) : 'Nenhuma tarefa pendente.';
@@ -131,9 +133,11 @@ export async function POST(req) {
             result = `Tarefa "${input.title}" criada no Google Tasks!`;
           } else if (name === 'complete_task') {
             await completeTask(accessToken, input.task_id, input.list_id);
-            result = 'Tarefa concluída!';
+            result = 'Tarefa marcada como concluída!';
           }
-        } catch (e) { result = `Erro: ${e.message}`; }
+        } catch (toolErr) {
+          result = `Erro na ferramenta ${name}: ${toolErr.message}`;
+        }
         toolResults.push({ tool_use_id: id, content: result });
       }
     }
@@ -144,18 +148,33 @@ export async function POST(req) {
         max_tokens: 2048,
         system: DURABEL_SYSTEM_PROMPT,
         messages: [
-          contextMessage,
-          ...messages.map(m => ({ role: m.role, content: m.content })),
+          ...apiMessages,
           { role: 'assistant', content: response.content },
-          { role: 'user', content: toolResults.map(r => ({ type: 'tool_result', tool_use_id: r.tool_use_id, content: r.content })) },
+          {
+            role: 'user',
+            content: toolResults.map(r => ({
+              type: 'tool_result',
+              tool_use_id: r.tool_use_id,
+              content: r.content,
+            })),
+          },
         ],
       });
-      finalContent = followUp.content.filter(b => b.type === 'text').map(b => b.text).join('');
+      finalContent = followUp.content
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('');
     }
 
-    return Response.json({ content: finalContent });
+    return Response.json({ content: finalContent || 'Pronto!' });
+
   } catch (err) {
-    console.error('Chat error:', err);
-    return Response.json({ content: 'Erro de conexão. Tente novamente.' }, { status: 500 });
+    console.error('Chat API error:', err?.message, err?.status);
+    const msg = err?.status === 401
+      ? '🔑 Chave Anthropic inválida. Verifique em Config → Chaves API.'
+      : err?.status === 429
+        ? '⏳ Limite de requisições atingido. Aguarde um momento.'
+        : `Erro de conexão: ${err?.message || 'Tente novamente.'}`;
+    return Response.json({ content: msg }, { status: 500 });
   }
 }
