@@ -9,6 +9,9 @@ function EventCard({ event, onDelete, onEdit }) {
     title: event.title,
     location: event.location || '',
     description: event.description || '',
+    date: event.start ? event.start.split('T')[0] : '',
+    time: event.start?.includes('T') ? event.start.split('T')[1]?.slice(0,5) : '',
+    endTime: event.end?.includes('T') ? event.end.split('T')[1]?.slice(0,5) : '',
   });
 
   const start = new Date(event.start);
@@ -27,6 +30,10 @@ function EventCard({ event, onDelete, onEdit }) {
     event.title = form.title;
     event.location = form.location;
     event.description = form.description;
+    if (form.date && form.time) {
+      event.start = `${form.date}T${form.time}:00`;
+      if (form.endTime) event.end = `${form.date}T${form.endTime}:00`;
+    }
     setEditing(false);
   };
 
@@ -38,6 +45,26 @@ function EventCard({ event, onDelete, onEdit }) {
           placeholder="Título *"
           className="w-full rounded-xl px-3 py-2 text-sm mb-2"
           style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Data</label>
+            <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+              className="w-full rounded-xl px-3 py-2 text-sm"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Início</label>
+            <input type="time" value={form.time} onChange={e => setForm(p => ({ ...p, time: e.target.value }))}
+              className="w-full rounded-xl px-3 py-2 text-sm"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+          </div>
+        </div>
+        <div className="mb-2">
+          <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Término</label>
+          <input type="time" value={form.endTime} onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))}
+            className="w-full rounded-xl px-3 py-2 text-sm"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        </div>
         <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
           placeholder="Local"
           className="w-full rounded-xl px-3 py-2 text-sm mb-2"
