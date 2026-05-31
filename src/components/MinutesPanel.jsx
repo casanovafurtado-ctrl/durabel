@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Mic, Square, FileText, Trash2, Download, ChevronDown, ChevronUp, Loader } from 'lucide-react';
+import { Mic, Square, FileText, Trash2, Download, ChevronDown, ChevronUp, Loader, ArrowLeft } from 'lucide-react';
 import { exportMinutePDF } from '@/lib/pdfExport';
 
 function formatTime(seconds) {
@@ -11,14 +11,65 @@ function formatTime(seconds) {
   return h > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
 }
 
-function MinuteCard({ minute, onDelete }) {
-  const [expanded, setExpanded] = useState(false);
+const ATA_TYPES = [
+  { id: 'detailed', icon: '📋', label: 'Ata Completa', desc: 'Com todos os detalhes, decisões e ações' },
+  { id: 'summary', icon: '⚡', label: 'Resumo Executivo', desc: 'Pontos principais e decisões em formato conciso' },
+  { id: 'topics', icon: '📌', label: 'Tópicos Abordados', desc: 'Lista estruturada por assunto' },
+  { id: 'actions', icon: '✅', label: 'Plano de Ação', desc: 'Focado nas próximas ações e responsáveis' },
+  { id: 'mindmap', icon: '🧠', label: 'Mapa Mental', desc: 'Estrutura visual dos temas em texto' },
+];
+
+const ATA_PROMPTS = {
+  detailed: (transcript, date) => `Gere uma ata de reunião profissional e completa em português com base na transcrição abaixo.
+Data: ${date}
+Inclua obrigatoriamente: Título, Data, Participantes (se mencionados), Pauta, Pontos Discutidos em detalhes, Decisões Tomadas, Próximas Ações com responsáveis e prazos quando mencionados.
+Use seções bem definidas. Sem asteriscos ou markdown, apenas texto limpo com quebras de linha.
+
+TRANSCRIÇÃO: ${transcript}`,
+
+  summary: (transcript, date) => `Com base na transcrição abaixo, gere um RESUMO EXECUTIVO conciso da reunião em português.
+Data: ${date}
+Formato: 3 a 5 bullet points dos pontos mais importantes, decisões tomadas e próximas ações.
+Seja direto e objetivo. Sem asteriscos ou markdown.
+
+TRANSCRIÇÃO: ${transcript}`,
+
+  topics: (transcript, date) => `Com base na transcrição abaixo, liste de forma estruturada todos os TÓPICOS ABORDADOS na reunião em português.
+Data: ${date}
+Para cada tópico, inclua um breve resumo do que foi discutido.
+Organize por ordem de importância. Sem asteriscos ou markdown.
+
+TRANSCRIÇÃO: ${transcript}`,
+
+  actions: (transcript, date) => `Com base na transcrição abaixo, gere um PLANO DE AÇÃO da reunião em português.
+Data: ${date}
+Liste apenas: O que fazer, Quem é responsável, Prazo (se mencionado).
+Formato limpo e direto. Sem asteriscos ou markdown.
+
+TRANSCRIÇÃO: ${transcript}`,
+
+  mindmap: (transcript, date) => `Com base na transcrição abaixo, crie um MAPA MENTAL textual da reunião em português.
+Data: ${date}
+Use estrutura hierárquica com indentação para mostrar relações entre temas.
+Exemplo:
+TEMA CENTRAL
+  Subtema 1
+    Detalhe A
+    Detalhe B
+  Subtema 2
+    Detalhe C
+
+Sem asteriscos ou markdown extra além da indentação.
+
+TRANSCRIÇÃO: ${transcript}`,
+};
+
+function MinuteCard({ minute, onDelete, onView }) {
   return (
     <div className="rounded-2xl mb-3 overflow-hidden"
       style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-      <button className="w-full flex items-center justify-between px-4 py-3 text-left"
-        onClick={() => setExpanded(e => !e)}>
-        <div className="flex items-center gap-3">
+      <div className="px-4 py-3 flex items-center justify-between gap-2">
+        <button className="flex items-center gap-3 flex-1 text-left" onClick={() => onView(minute)}>
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)' }}>
             <FileText size={16} style={{ color: 'var(--blue)' }} />
@@ -27,47 +78,72 @@ function MinuteCard({ minute, onDelete }) {
             <p className="text-sm font-semibold" style={{ color: 'var(--text)', fontFamily: 'Syne, sans-serif' }}>
               {minute.title}
             </p>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>{minute.date}</p>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>{minute.date} · {minute.type || 'Completa'}</p>
           </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={e => { e.stopPropagation(); exportMinutePDF(minute); }}
+        </button>
+        <div className="flex gap-1.5 flex-shrink-0">
+          <button onClick={() => exportMinutePDF(minute)}
             className="w-8 h-8 rounded-xl flex items-center justify-center"
             style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)' }}>
             <Download size={14} />
           </button>
-          <button onClick={e => { e.stopPropagation(); onDelete(minute.id); }}
+          <button onClick={() => onDelete(minute.id)}
             className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--dim)' }}>
+            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
             <Trash2 size={14} />
           </button>
-          {expanded ? <ChevronUp size={16} style={{ color: 'var(--dim)' }} /> : <ChevronDown size={16} style={{ color: 'var(--dim)' }} />}
         </div>
-      </button>
-      {expanded && (
-        <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-          <pre className="text-xs leading-relaxed whitespace-pre-wrap"
-            style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
-            {minute.content}
-          </pre>
+      </div>
+    </div>
+  );
+}
+
+function MinuteView({ minute, onBack }) {
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--border)' }}>
+        <button onClick={onBack}
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+          <ArrowLeft size={16} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold truncate" style={{ color: 'var(--text)', fontFamily: 'Syne, sans-serif' }}>
+            {minute.title}
+          </p>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>{minute.date}</p>
         </div>
-      )}
+        <button onClick={() => exportMinutePDF(minute)}
+          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)' }}>
+          <Download size={16} />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <pre className="text-sm leading-relaxed whitespace-pre-wrap"
+          style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
+          {minute.content}
+        </pre>
+      </div>
     </div>
   );
 }
 
 export default function MinutesPanel() {
-  const [step, setStep] = useState('idle'); // idle | recording | processing | review | done
+  const [step, setStep] = useState('idle');
   const [seconds, setSeconds] = useState(0);
   const [title, setTitle] = useState('');
   const [audioBlob, setAudioBlob] = useState(null);
   const [transcript, setTranscript] = useState('');
+  const [liveTranscript, setLiveTranscript] = useState('');
   const [minutes, setMinutes] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
   const [manualMode, setManualMode] = useState(false);
   const [manualText, setManualText] = useState('');
-  const [liveTranscript, setLiveTranscript] = useState('');
+  const [selectedType, setSelectedType] = useState('detailed');
+  const [viewingMinute, setViewingMinute] = useState(null);
 
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -92,213 +168,144 @@ export default function MinutesPanel() {
     try { await window.storage?.set('meeting_minutes', JSON.stringify(updated)); } catch {}
   };
 
+  const startLiveRecognition = () => {
+    const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+    if (!SR) return;
+
+    // Usa blocos curtos de 8s — Safari iOS não suporta continuous por muito tempo
+    const startChunk = () => {
+      if (mediaRecorderRef.current?.state !== 'recording') return;
+
+      const rec = new SR();
+      rec.lang = 'pt-BR';
+      rec.continuous = false; // false = mais estável no Safari iOS
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+
+      rec.onresult = (e) => {
+        const text = e.results[0]?.[0]?.transcript || '';
+        if (text.trim()) {
+          liveTranscriptRef.current += text + ' ';
+          setLiveTranscript(liveTranscriptRef.current);
+        }
+      };
+
+      rec.onend = () => {
+        // Inicia próximo chunk após 200ms se ainda gravando
+        if (mediaRecorderRef.current?.state === 'recording') {
+          setTimeout(startChunk, 200);
+        }
+      };
+
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed') return;
+        // Em qualquer erro, tenta próximo chunk após 500ms
+        if (mediaRecorderRef.current?.state === 'recording') {
+          setTimeout(startChunk, 500);
+        }
+      };
+
+      liveRecognitionRef.current = rec;
+      try { rec.start(); } catch { setTimeout(startChunk, 500); }
+    };
+
+    startChunk();
+  };
+
   const startRecording = async () => {
     setError('');
+    setLiveTranscript('');
+    liveTranscriptRef.current = '';
+
     try {
-      // Pede permissão de microfone
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
-        }
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       chunksRef.current = [];
 
-      // Escolhe o melhor formato disponível
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm'
-          : 'audio/mp4';
+        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
 
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
 
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mimeType });
         setAudioBlob(blob);
         streamRef.current?.getTracks().forEach(t => t.stop());
       };
 
-      // Coleta chunks a cada 1s para não perder dados
       recorder.start(1000);
       setStep('recording');
       setSeconds(0);
-
-      // Mantém tela acesa durante gravação
-      try {
-        if ('wakeLock' in navigator) {
-          wakeLockRef.current = await navigator.wakeLock.request('screen');
-        }
-      } catch {}
-
-      // Inicia transcrição em tempo real DURANTE a gravação
-      const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-      if (SR) {
-        const liveRec = new SR();
-        liveRec.lang = 'pt-BR';
-        liveRec.continuous = true;
-        liveRec.interimResults = true;
-        liveTranscriptRef.current = '';
-
-        liveRec.onresult = (e) => {
-          let final = '';
-          let interim = '';
-          for (let i = 0; i < e.results.length; i++) {
-            if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
-            else interim += e.results[i][0].transcript;
-          }
-          liveTranscriptRef.current = final;
-          setLiveTranscript(final + interim);
-        };
-
-        liveRec.onend = () => {
-          // Reinicia automaticamente para gravar reuniões longas
-          if (mediaRecorderRef.current?.state === 'recording') {
-            try { liveRec.start(); } catch {}
-          }
-        };
-
-        liveRec.onerror = () => {};
-        liveRecognitionRef.current = liveRec;
-        try { liveRec.start(); } catch {}
-      }
-
       timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
 
-    } catch (err) {
-      setError('Não foi possível acessar o microfone. Verifique as permissões.');
+      // Wake lock
+      try {
+        if ('wakeLock' in navigator) wakeLockRef.current = await navigator.wakeLock.request('screen');
+      } catch {}
+
+      // Transcrição em tempo real
+      startLiveRecognition();
+
+    } catch {
+      setError('Não foi possível acessar o microfone.');
     }
   };
 
   const stopRecording = () => {
     clearInterval(timerRef.current);
-    mediaRecorderRef.current?.stop();
     liveRecognitionRef.current?.stop();
-    setStep('processing');
+    mediaRecorderRef.current?.stop();
 
-    // Salva transcrição ao vivo se existir
-    const liveText = liveTranscriptRef.current.trim();
-    if (liveText) {
-      setTranscript(liveText);
-    }
+    // Salva o que foi transcrito
+    const live = liveTranscriptRef.current.trim();
+    if (live) setTranscript(live);
 
-    // Libera wake lock
     try { wakeLockRef.current?.release(); wakeLockRef.current = null; } catch {}
-
-    // Aguarda o blob ficar pronto
-    setTimeout(() => setStep('review'), 1500);
+    setStep('review');
   };
 
-  // Transcreve usando Web Speech API — gratuito, sem API key
-  const transcribeWithSpeech = () => {
-    const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (!SR) {
-      setManualMode(true);
-      setError('Seu navegador não suporta transcrição. Digite o conteúdo abaixo.');
+  const reset = () => {
+    clearInterval(timerRef.current);
+    liveRecognitionRef.current?.stop();
+    mediaRecorderRef.current?.stop();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    try { wakeLockRef.current?.release(); wakeLockRef.current = null; } catch {}
+    setStep('idle');
+    setTranscript('');
+    setLiveTranscript('');
+    liveTranscriptRef.current = '';
+    setAudioBlob(null);
+    setSeconds(0);
+    setError('');
+    setManualMode(false);
+    setManualText('');
+    setSelectedType('detailed');
+  };
+
+  const generateMinute = async () => {
+    const textToUse = transcript.trim() || manualText.trim();
+    if (!textToUse) {
+      setError('Adicione o conteúdo da reunião antes de gerar a ata.');
       return;
     }
 
     setGenerating(true);
     setError('');
 
-    const recognition = new SR();
-    recognition.lang = 'pt-BR';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    let finalText = '';
-    let interimText = '';
-
-    // Reproduz o áudio gravado enquanto transcreve
-    const audioUrl = URL.createObjectURL(audioBlob);
-    const audio = new Audio(audioUrl);
-
-    recognition.onresult = (e) => {
-      interimText = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          finalText += e.results[i][0].transcript + ' ';
-        } else {
-          interimText += e.results[i][0].transcript;
-        }
-      }
-      setTranscript(finalText + interimText);
-    };
-
-    recognition.onerror = (e) => {
-      if (e.error !== 'no-speech') {
-        recognition.stop();
-        audio.pause();
-        if (finalText.trim()) {
-          setTranscript(finalText.trim());
-        } else {
-          setManualMode(true);
-          setError('Não conseguiu transcrever. Digite o conteúdo abaixo.');
-        }
-      }
-      setGenerating(false);
-      URL.revokeObjectURL(audioUrl);
-    };
-
-    recognition.onend = () => {
-      audio.pause();
-      setGenerating(false);
-      URL.revokeObjectURL(audioUrl);
-      if (finalText.trim()) {
-        setTranscript(finalText.trim());
-      } else if (!manualMode) {
-        setManualMode(true);
-        setError('Nenhuma fala detectada. Digite o conteúdo abaixo.');
-      }
-    };
-
-    // Inicia reconhecimento e áudio juntos
-    recognition.start();
-    audio.play().catch(() => {
-      // Se não conseguir tocar o áudio, transcreve em silêncio
-    });
-
-    // Para quando o áudio terminar
-    audio.onended = () => recognition.stop();
-  };
-
-  const transcribeAudio = () => {
-    if (!audioBlob) return;
-    transcribeWithSpeech();
-  };
-
-  const generateMinute = async () => {
-    if (!transcript.trim()) return;
-    setGenerating(true);
-
     try {
-      // Pega chave do localStorage — igual ao ChatPanel
       const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       const anthropicKey = localSettings.anthropic_key || '';
+      const date = new Date().toLocaleDateString('pt-BR');
+      const prompt = ATA_PROMPTS[selectedType](textToUse, date);
+      const typeLabel = ATA_TYPES.find(t => t.id === selectedType)?.label || 'Completa';
 
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          anthropicKey,
-          messages: [{
-            role: 'user',
-            content: `Gere uma ata de reunião profissional em português com base nesta transcrição.
-Inclua: Título, Data (${new Date().toLocaleDateString('pt-BR')}), Participantes (se mencionados), Pauta, Pontos Discutidos, Decisões Tomadas e Próximas Ações com responsáveis e prazos.
-Use formatação clara com seções bem definidas. Sem asteriscos ou markdown.
-
-TRANSCRIÇÃO:
-${transcript}`,
-          }],
-        }),
+        body: JSON.stringify({ anthropicKey, messages: [{ role: 'user', content: prompt }] }),
       });
 
       const data = await res.json();
@@ -306,56 +313,45 @@ ${transcript}`,
       if (data.content) {
         const newMinute = {
           id: Date.now().toString(),
-          title: title || `Reunião ${new Date().toLocaleDateString('pt-BR')}`,
+          title: title || `Reunião ${date}`,
           date: new Date().toLocaleString('pt-BR'),
+          type: typeLabel,
           content: data.content,
         };
         await saveMinutes([newMinute, ...minutes]);
-        setStep('done');
-        setTranscript('');
-        setTitle('');
-        setAudioBlob(null);
+        setViewingMinute(newMinute);
+        reset();
+      } else {
+        setError('Erro ao gerar ata. Verifique sua chave API.');
       }
     } catch {
-      setError('Erro ao gerar ata. Tente novamente.');
+      setError('Erro de conexão. Tente novamente.');
     }
     setGenerating(false);
   };
 
-  const reset = () => {
-    setStep('idle');
-    setTranscript('');
-    setTitle('');
-    setAudioBlob(null);
-    setSeconds(0);
-    setError('');
-    clearInterval(timerRef.current);
-    mediaRecorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    liveRecognitionRef.current?.stop();
-    try { wakeLockRef.current?.release(); wakeLockRef.current = null; } catch {};
-    setLiveTranscript('');
-    liveTranscriptRef.current = '';
-  };
-
   const deleteMinute = async (id) => {
     await saveMinutes(minutes.filter(m => m.id !== id));
+    if (viewingMinute?.id === id) setViewingMinute(null);
   };
+
+  // View de ata
+  if (viewingMinute) {
+    return <MinuteView minute={viewingMinute} onBack={() => setViewingMinute(null)} />;
+  }
 
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Minutas de Reunião</h2>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
-          Grave, transcreva e gere atas com IA
-        </p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Grave, transcreva e gere atas com IA</p>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
 
         {/* IDLE */}
         {step === 'idle' && (
-          <div className="text-center py-6">
+          <div className="text-center py-4">
             <div className="w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center"
               style={{ background: 'rgba(0,119,255,0.1)', border: '2px solid rgba(0,119,255,0.3)' }}>
               <Mic size={32} style={{ color: 'var(--blue)' }} />
@@ -363,25 +359,19 @@ ${transcript}`,
             <p className="font-semibold mb-1" style={{ color: 'var(--text)', fontFamily: 'Syne, sans-serif' }}>
               Gravar Reunião
             </p>
-            <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>
-              A gravação continua mesmo com a tela apagada.
+            <p className="text-xs mb-4 px-4" style={{ color: 'var(--muted)' }}>
+              A transcrição ocorre em tempo real enquanto você fala
             </p>
-            <p className="text-xs mb-6 px-4" style={{ color: 'var(--dim)' }}>
-              💡 Mantenha o app aberto no iPhone. A tela pode apagar normalmente — o áudio não para.
-            </p>
-
             <input value={title} onChange={e => setTitle(e.target.value)}
               placeholder="Título da reunião (opcional)"
               className="w-full rounded-xl px-4 py-3 text-sm mb-4"
               style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
-
             {error && (
               <div className="rounded-xl px-4 py-2 mb-4 text-xs"
                 style={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.3)' }}>
                 {error}
               </div>
             )}
-
             <button onClick={startRecording}
               className="btn-glow px-8 py-4 rounded-2xl text-white font-semibold flex items-center gap-2 mx-auto"
               style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -392,8 +382,8 @@ ${transcript}`,
 
         {/* RECORDING */}
         {step === 'recording' && (
-          <div className="text-center py-6">
-            <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center"
+          <div className="text-center py-4">
+            <div className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
               style={{
                 background: 'rgba(239,68,68,0.1)', border: '2px solid #EF4444',
                 boxShadow: '0 0 30px rgba(239,68,68,0.25)',
@@ -401,32 +391,24 @@ ${transcript}`,
               }}>
               <Mic size={36} style={{ color: '#EF4444' }} />
             </div>
-
             <div className="text-4xl font-bold mb-1" style={{ color: '#EF4444', fontFamily: 'Syne, sans-serif' }}>
               {formatTime(seconds)}
             </div>
+            <p className="text-xs mb-3" style={{ color: 'var(--muted)' }}>🔴 Gravando · tela mantida acesa</p>
 
-            <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>🔴 Gravando...</p>
-
-            <div className="rounded-xl px-4 py-3 mb-4 mx-4"
-              style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
-              <p className="text-xs" style={{ color: '#10B981' }}>
-                ✅ Tela acesa · Transcrevendo em tempo real
-              </p>
-            </div>
-
-            {liveTranscript ? (
-              <div className="mx-4 mb-6 rounded-xl p-3 max-h-32 overflow-auto"
-                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-                <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+            {/* Live transcript */}
+            <div className="rounded-xl p-3 mb-4 text-left min-h-16 max-h-40 overflow-auto"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+              {liveTranscript ? (
+                <p className="text-xs leading-relaxed" style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
                   {liveTranscript}
                 </p>
-              </div>
-            ) : (
-              <p className="text-xs text-center mb-6 mx-4" style={{ color: 'var(--dim)' }}>
-                🎙 Fale normalmente — o texto aparecerá aqui
-              </p>
-            )}
+              ) : (
+                <p className="text-xs" style={{ color: 'var(--dim)', fontFamily: 'Inter, sans-serif' }}>
+                  🎙 Fale normalmente — o texto aparecerá aqui...
+                </p>
+              )}
+            </div>
 
             <button onClick={stopRecording}
               className="px-8 py-4 rounded-2xl text-white font-semibold flex items-center gap-2 mx-auto"
@@ -436,178 +418,101 @@ ${transcript}`,
           </div>
         )}
 
-        {/* PROCESSING */}
-        {step === 'processing' && (
-          <div className="text-center py-12">
-            <Loader size={36} style={{ color: 'var(--blue)', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
-            <p style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>Processando áudio...</p>
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-          </div>
-        )}
-
         {/* REVIEW */}
         {step === 'review' && (
           <div className="animate-fade-in">
 
-            {/* Áudio player */}
+            {/* Transcrição */}
             <div className="rounded-xl p-4 mb-4"
               style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-xs font-bold tracking-widest" style={{ color: 'var(--muted)' }}>
-                  ÁUDIO GRAVADO
+                  TRANSCRIÇÃO · {formatTime(seconds)}
                 </p>
-                <span className="text-xs font-semibold" style={{ color: 'var(--blue)' }}>
-                  {formatTime(seconds)}
-                </span>
+                <button onClick={() => setManualMode(!manualMode)}
+                  className="text-xs px-2 py-1 rounded-lg"
+                  style={{ background: 'var(--bg)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+                  {manualMode ? 'Ver transcrição' : 'Editar'}
+                </button>
               </div>
-              {audioBlob && (
-                <audio controls className="w-full mt-2" style={{ height: '36px' }}>
-                  <source src={URL.createObjectURL(audioBlob)} type={audioBlob.type} />
-                </audio>
+
+              {manualMode ? (
+                <textarea
+                  value={manualText || transcript}
+                  onChange={e => setManualText(e.target.value)}
+                  placeholder="Edite ou complete a transcrição..."
+                  rows={5}
+                  className="w-full rounded-xl px-3 py-2 text-sm resize-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
+                />
+              ) : (
+                <p className="text-sm leading-relaxed" style={{ color: transcript ? 'var(--text)' : 'var(--dim)', fontFamily: 'Inter, sans-serif' }}>
+                  {transcript || 'Nenhuma fala detectada. Clique em "Editar" para digitar manualmente.'}
+                </p>
               )}
             </div>
 
-            {/* Erro */}
+            {/* Tipo de ata */}
+            <div className="mb-4">
+              <p className="text-xs font-bold tracking-widest mb-3" style={{ color: 'var(--muted)' }}>
+                TIPO DE DOCUMENTO
+              </p>
+              <div className="flex flex-col gap-2">
+                {ATA_TYPES.map(type => (
+                  <button key={type.id} onClick={() => setSelectedType(type.id)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
+                    style={{
+                      background: selectedType === type.id ? 'rgba(0,119,255,0.1)' : 'var(--card)',
+                      border: `1px solid ${selectedType === type.id ? 'rgba(0,119,255,0.4)' : 'var(--border)'}`,
+                    }}>
+                    <span style={{ fontSize: '20px' }}>{type.icon}</span>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
+                        {type.label}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--muted)' }}>{type.desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {error && (
-              <div className="rounded-xl px-4 py-2 mb-4 text-xs"
+              <div className="rounded-xl px-4 py-2 mb-3 text-xs"
                 style={{ background: 'rgba(239,68,68,0.1)', color: '#FCA5A5', border: '1px solid rgba(239,68,68,0.3)' }}>
                 {error}
               </div>
             )}
 
-            {/* ETAPA 1: Transcrever — só aparece se ainda não transcreveu */}
-            {!transcript && (
-              <div className="mb-4">
-                {!manualMode ? (
-                  <>
-                    <div className="rounded-xl px-4 py-3 mb-3"
-                      style={{ background: 'rgba(0,119,255,0.06)', border: '1px solid rgba(0,119,255,0.2)' }}>
-                      <p className="text-xs" style={{ color: 'var(--blue)' }}>
-                        📌 Passo 1 — Transcreva o áudio para continuar
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={reset} disabled={generating}
-                        className="py-3 px-4 rounded-xl text-sm font-semibold"
-                        style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
-                        Descartar
-                      </button>
-                      <button onClick={transcribeAudio} disabled={generating || !audioBlob}
-                        className="flex-1 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-                        style={{
-                          background: generating ? 'rgba(0,119,255,0.08)' : 'rgba(0,119,255,0.15)',
-                          border: '1px solid rgba(0,119,255,0.3)',
-                          color: 'var(--blue)', fontFamily: 'Inter, sans-serif',
-                          cursor: generating ? 'not-allowed' : 'pointer',
-                        }}>
-                        {generating
-                          ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Transcrevendo...</>
-                          : <><span>🎙</span> Transcrever Áudio</>
-                        }
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="rounded-xl px-4 py-3 mb-3"
-                      style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
-                      <p className="text-xs" style={{ color: '#F59E0B' }}>
-                        ✏️ {error || 'Digite o conteúdo da reunião abaixo para gerar a ata.'}
-                      </p>
-                    </div>
-                    <textarea
-                      value={manualText}
-                      onChange={e => setManualText(e.target.value)}
-                      placeholder="Descreva os pontos discutidos na reunião, decisões tomadas, próximas ações..."
-                      rows={6}
-                      className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
-                      style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
-                    />
-                    <div className="flex gap-2">
-                      <button onClick={reset}
-                        className="py-3 px-4 rounded-xl text-sm font-semibold"
-                        style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
-                        Descartar
-                      </button>
-                      <button onClick={() => { setTranscript(manualText); setManualMode(false); }}
-                        disabled={!manualText.trim()}
-                        className="flex-1 btn-glow py-3 rounded-xl text-white text-sm font-semibold"
-                        style={{ fontFamily: 'Inter, sans-serif', opacity: !manualText.trim() ? 0.5 : 1 }}>
-                        Usar este conteúdo →
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* ETAPA 2: Transcrição feita — mostra texto e botão de gerar ata */}
-            {transcript && (
-              <>
-                <div className="rounded-xl p-4 mb-4"
-                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-                  <p className="text-xs font-bold tracking-widest mb-2" style={{ color: 'var(--muted)' }}>
-                    TRANSCRIÇÃO
-                  </p>
-                  <p className="text-sm leading-relaxed" style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
-                    {transcript}
-                  </p>
-                </div>
-
-                <div className="rounded-xl px-4 py-3 mb-3"
-                  style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                  <p className="text-xs" style={{ color: '#10B981' }}>
-                    ✅ Passo 2 — Revise a transcrição e gere a ata
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  <button onClick={reset} disabled={generating}
-                    className="py-3 px-4 rounded-xl text-sm font-semibold"
-                    style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
-                    Descartar
-                  </button>
-                  <button
-                    onClick={generateMinute}
-                    disabled={generating}
-                    className="flex-1 btn-glow py-3 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2"
-                    style={{ fontFamily: 'Inter, sans-serif', cursor: generating ? 'not-allowed' : 'pointer' }}>
-                    {generating
-                      ? <><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> Gerando ata...</>
-                      : <><FileText size={15} /> Gerar Ata com IA</>
-                    }
-                  </button>
-                </div>
-              </>
-            )}
+            <div className="flex gap-2">
+              <button onClick={reset} disabled={generating}
+                className="py-3 px-4 rounded-xl text-sm font-semibold"
+                style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+                Descartar
+              </button>
+              <button onClick={generateMinute} disabled={generating}
+                className="flex-1 btn-glow py-3 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2"
+                style={{ fontFamily: 'Inter, sans-serif', opacity: generating ? 0.7 : 1 }}>
+                {generating
+                  ? <><Loader size={15} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</>
+                  : <><FileText size={15} /> Gerar {ATA_TYPES.find(t => t.id === selectedType)?.label}</>
+                }
+              </button>
+            </div>
           </div>
         )}
 
-        {/* DONE */}
-        {step === 'done' && (
-          <div className="text-center py-8 animate-fade-in">
-            <div className="text-5xl mb-3">✅</div>
-            <p className="font-semibold mb-1" style={{ color: 'var(--text)', fontFamily: 'Syne, sans-serif' }}>
-              Ata gerada!
-            </p>
-            <p className="text-sm mb-6" style={{ color: 'var(--muted)' }}>
-              Disponível abaixo com opção de exportar PDF.
-            </p>
-            <button onClick={reset}
-              className="btn-glow px-6 py-3 rounded-xl text-white text-sm font-semibold"
-              style={{ fontFamily: 'Inter, sans-serif' }}>
-              Nova Gravação
-            </button>
-          </div>
-        )}
-
-        {/* Saved minutes */}
-        {minutes.length > 0 && (
-          <div className={step !== 'idle' ? 'mt-6' : ''}>
+        {/* Atas salvas */}
+        {minutes.length > 0 && step === 'idle' && (
+          <div className="mt-4">
             <p className="text-xs font-bold tracking-widest mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
               ATAS SALVAS · {minutes.length}
             </p>
-            {minutes.map(m => <MinuteCard key={m.id} minute={m} onDelete={deleteMinute} />)}
+            {minutes.map(m => (
+              <MinuteCard key={m.id} minute={m}
+                onDelete={deleteMinute}
+                onView={setViewingMinute} />
+            ))}
           </div>
         )}
       </div>
