@@ -38,10 +38,12 @@ export async function POST(req) {
     }
 
     if (body.action === 'update') {
+      const resource = { title: body.title, notes: body.notes };
+      if (body.due) resource.due = new Date(body.due).toISOString();
       const task = await tasks.tasks.patch({
         tasklist: body.listId || '@default',
         task: body.taskId,
-        resource: { title: body.title, notes: body.notes },
+        resource,
       });
       return Response.json({ task: task.data });
     }
