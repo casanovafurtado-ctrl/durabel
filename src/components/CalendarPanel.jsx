@@ -222,7 +222,7 @@ export default function CalendarPanel() {
 
   const editEvent = async (eventId, form) => {
     try {
-      const res = await fetch('/api/calendar', {
+      await fetch('/api/calendar', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,7 +235,24 @@ export default function CalendarPanel() {
           endTime: form.endTime,
         }),
       });
-      // Não recarrega — atualização local já reflete a mudança
+
+      // Atualiza estado local para refletir mudança imediatamente
+      setEvents(prev => prev.map(e => {
+        if (e.id !== eventId) return e;
+        const updated = {
+          ...e,
+          title: form.title,
+          location: form.location,
+          description: form.description,
+        };
+        if (form.date && form.time) {
+          updated.start = `${form.date}T${form.time}:00`;
+          updated.end = form.endTime
+            ? `${form.date}T${form.endTime}:00`
+            : updated.end;
+        }
+        return updated;
+      }));
     } catch {}
   };
 
