@@ -65,6 +65,8 @@ export default function MinutesPanel() {
   const [minutes, setMinutes] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
+  const [manualMode, setManualMode] = useState(false);
+  const [manualText, setManualText] = useState('');
 
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -144,16 +146,15 @@ export default function MinutesPanel() {
   const transcribeAudio = async () => {
     if (!audioBlob) return;
     setGenerating(true);
+    setError('');
 
     try {
-      // Converte blob para base64
       const base64 = await new Promise((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result.split(',')[1]);
         reader.readAsDataURL(audioBlob);
       });
 
-      // Envia para API de transcrição + geração de ata
       const res = await fetch('/api/transcribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -169,13 +170,17 @@ export default function MinutesPanel() {
 
       if (data.content) {
         setTranscript(data.content);
-        setStep('review');
+      } else if (data.manual) {
+        // Fallback — modo manual
+        setManualMode(true);
+        setError(data.message || 'Digite o conteúdo da reunião abaixo.');
       } else {
-        setError('Não foi possível transcrever. Tente novamente.');
-        setStep('review');
+        setManualMode(true);
+        setError('Transcrição automática indisponível. Digite o conteúdo abaixo.');
       }
     } catch (err) {
-      setError('Erro na transcrição: ' + err.message);
+      setManualMode(true);
+      setError('Erro na transcrição. Digite o conteúdo abaixo.');
     }
     setGenerating(false);
   };
@@ -361,35 +366,66 @@ ${transcript}`,
             {/* ETAPA 1: Transcrever — só aparece se ainda não transcreveu */}
             {!transcript && (
               <div className="mb-4">
-                <div className="rounded-xl px-4 py-3 mb-3"
-                  style={{ background: 'rgba(0,119,255,0.06)', border: '1px solid rgba(0,119,255,0.2)' }}>
-                  <p className="text-xs" style={{ color: 'var(--blue)' }}>
-                    📌 Passo 1 — Transcreva o áudio para continuar
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={reset} disabled={generating}
-                    className="py-3 px-4 rounded-xl text-sm font-semibold"
-                    style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
-                    Descartar
-                  </button>
-                  <button
-                    onClick={transcribeAudio}
-                    disabled={generating || !audioBlob}
-                    className="flex-1 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-                    style={{
-                      background: generating ? 'rgba(0,119,255,0.08)' : 'rgba(0,119,255,0.15)',
-                      border: '1px solid rgba(0,119,255,0.3)',
-                      color: 'var(--blue)',
-                      fontFamily: 'Inter, sans-serif',
-                      cursor: generating ? 'not-allowed' : 'pointer',
-                    }}>
-                    {generating
-                      ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Transcrevendo...</>
-                      : <><span>🎙</span> Transcrever Áudio</>
-                    }
-                  </button>
-                </div>
+                {!manualMode ? (
+                  <>
+                    <div className="rounded-xl px-4 py-3 mb-3"
+                      style={{ background: 'rgba(0,119,255,0.06)', border: '1px solid rgba(0,119,255,0.2)' }}>
+                      <p className="text-xs" style={{ color: 'var(--blue)' }}>
+                        📌 Passo 1 — Transcreva o áudio para continuar
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={reset} disabled={generating}
+                        className="py-3 px-4 rounded-xl text-sm font-semibold"
+                        style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+                        Descartar
+                      </button>
+                      <button onClick={transcribeAudio} disabled={generating || !audioBlob}
+                        className="flex-1 py-3 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                        style={{
+                          background: generating ? 'rgba(0,119,255,0.08)' : 'rgba(0,119,255,0.15)',
+                          border: '1px solid rgba(0,119,255,0.3)',
+                          color: 'var(--blue)', fontFamily: 'Inter, sans-serif',
+                          cursor: generating ? 'not-allowed' : 'pointer',
+                        }}>
+                        {generating
+                          ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Transcrevendo...</>
+                          : <><span>🎙</span> Transcrever Áudio</>
+                        }
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="rounded-xl px-4 py-3 mb-3"
+                      style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                      <p className="text-xs" style={{ color: '#F59E0B' }}>
+                        ✏️ {error || 'Digite o conteúdo da reunião abaixo para gerar a ata.'}
+                      </p>
+                    </div>
+                    <textarea
+                      value={manualText}
+                      onChange={e => setManualText(e.target.value)}
+                      placeholder="Descreva os pontos discutidos na reunião, decisões tomadas, próximas ações..."
+                      rows={6}
+                      className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
+                      style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={reset}
+                        className="py-3 px-4 rounded-xl text-sm font-semibold"
+                        style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+                        Descartar
+                      </button>
+                      <button onClick={() => { setTranscript(manualText); setManualMode(false); }}
+                        disabled={!manualText.trim()}
+                        className="flex-1 btn-glow py-3 rounded-xl text-white text-sm font-semibold"
+                        style={{ fontFamily: 'Inter, sans-serif', opacity: !manualText.trim() ? 0.5 : 1 }}>
+                        Usar este conteúdo →
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
