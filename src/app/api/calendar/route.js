@@ -63,12 +63,22 @@ export async function PATCH(req) {
 
     const resource = { summary: title, location, description };
 
-    // Atualiza data/hora se fornecidas
+    // Atualiza data/hora — trata como horário local de Recife (UTC-3)
     if (date && time) {
-      resource.start = { dateTime: new Date(`${date}T${time}:00`).toISOString(), timeZone: 'America/Recife' };
-      resource.end = endTime
-        ? { dateTime: new Date(`${date}T${endTime}:00`).toISOString(), timeZone: 'America/Recife' }
-        : { dateTime: new Date(new Date(`${date}T${time}:00`).getTime() + 3600000).toISOString(), timeZone: 'America/Recife' };
+      // Monta string sem Z para evitar interpretação UTC
+      const startStr = `${date}T${time}:00`;
+      const endStr = endTime ? `${date}T${endTime}:00` : null;
+
+      resource.start = { 
+        dateTime: startStr,
+        timeZone: 'America/Recife'
+      };
+      resource.end = endStr
+        ? { dateTime: endStr, timeZone: 'America/Recife' }
+        : { 
+            dateTime: `${date}T${String(parseInt(time.split(':')[0]) + 1).padStart(2,'0')}:${time.split(':')[1]}:00`,
+            timeZone: 'America/Recife'
+          };
     }
 
     const res = await calendar.events.patch({
