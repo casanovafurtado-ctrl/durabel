@@ -71,11 +71,15 @@ export async function POST(req) {
     const accessToken = session?.access_token;
     const email = session?.user?.email;
 
-    // Pega chave Anthropic — env do servidor primeiro, depois do usuário
-    let anthropicKey = process.env.ANTHROPIC_API_KEY;
+    // Pega chave Anthropic — apenas do app (Config → Chaves API)
+    // Fallback para env apenas em desenvolvimento
+    let anthropicKey = null;
     if (email) {
       const userKey = await getUserKey(email, 'anthropic_key');
       if (userKey) anthropicKey = userKey;
+    }
+    if (!anthropicKey && process.env.NODE_ENV === 'development') {
+      anthropicKey = process.env.ANTHROPIC_API_KEY;
     }
 
     if (!anthropicKey) {
@@ -98,7 +102,7 @@ export async function POST(req) {
     ];
 
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system: DURABEL_SYSTEM_PROMPT,
       tools: accessToken ? TOOLS : [],
@@ -144,7 +148,7 @@ export async function POST(req) {
 
     if (toolResults.length > 0) {
       const followUp = await client.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 2048,
         system: DURABEL_SYSTEM_PROMPT,
         messages: [
