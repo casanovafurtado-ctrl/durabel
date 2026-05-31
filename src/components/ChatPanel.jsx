@@ -116,10 +116,14 @@ export default function ChatPanel() {
     setMessages(newMessages);
 
     try {
+      // Pega chave do localStorage para enviar ao servidor
+      const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
+      const anthropicKey = localSettings.anthropic_key || '';
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, anthropicKey }),
       });
       const data = await res.json();
 
