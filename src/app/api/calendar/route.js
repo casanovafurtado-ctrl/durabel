@@ -55,16 +55,26 @@ export async function PATCH(req) {
     const session = await getServerSession(authOptions);
     if (!session?.access_token) return Response.json({ error: 'Não autenticado' }, { status: 401 });
 
-    const { eventId, title, location, description } = await req.json();
+    const { eventId, title, location, description, date, time, endTime } = await req.json();
     if (!eventId) return Response.json({ error: 'eventId obrigatório' }, { status: 400 });
 
     const auth = getGoogleClient(session.access_token);
     const calendar = google.calendar({ version: 'v3', auth });
 
+    const resource = { summary: title, location, description };
+
+    // Atualiza data/hora se fornecidas
+    if (date && time) {
+      resource.start = { dateTime: new Date(`${date}T${time}:00`).toISOString(), timeZone: 'America/Recife' };
+      resource.end = endTime
+        ? { dateTime: new Date(`${date}T${endTime}:00`).toISOString(), timeZone: 'America/Recife' }
+        : { dateTime: new Date(new Date(`${date}T${time}:00`).getTime() + 3600000).toISOString(), timeZone: 'America/Recife' };
+    }
+
     const res = await calendar.events.patch({
       calendarId: 'primary',
       eventId,
-      resource: { summary: title, location, description },
+      resource,
     });
 
     return Response.json({ event: res.data });
