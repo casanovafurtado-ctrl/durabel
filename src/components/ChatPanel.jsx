@@ -1,327 +1,339 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Mic, MicOff, Sparkles, Volume2, VolumeX } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide-react';
 
-// Remove markdown symbols from AI responses
-function cleanMarkdown(text) {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '$1')      // **negrito** → negrito
-    .replace(/\*(.+?)\*/g, '$1')            // *itálico* → itálico
-    .replace(/#{1,6}\s/g, '')               // # Título → Título
-    .replace(/`{3}[\s\S]*?`{3}/g, '')      // ```código``` → remove
-    .replace(/`(.+?)`/g, '$1')              // `código` → código
-    .replace(/^[-•]\s/gm, '• ')            // - item → • item
-    .replace(/^\d+\.\s/gm, (m) => m)     // 1. item → mantém
-    .trim();
+function EventCard({ event, onDelete, onEdit }) {
+  const [editing, setEditing] = useState(false);
+  const parseDate = (dateStr) => {
+    if (!dateStr) return '';
+    // Se for ISO string com timezone, converte para local
+    if (dateStr.includes('T')) {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('pt-BR', { timeZone: 'America/Recife' })
+        .split('/').reverse().join('-'); // DD/MM/YYYY → YYYY-MM-DD
+    }
+    return dateStr; // já está em YYYY-MM-DD
+  };
+
+  const parseTime = (dateStr) => {
+    if (!dateStr || !dateStr.includes('T')) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
+  };
+
+  const [form, setForm] = useState({
+    title: event.title,
+    location: event.location || '',
+    description: event.description || '',
+    date: parseDate(event.start),
+    time: parseTime(event.start),
+    endTime: parseTime(event.end),
+  });
+
+  const start = new Date(event.start);
+  const isToday = new Date().toDateString() === start.toDateString();
+  const isTomorrow = new Date(Date.now() + 86400000).toDateString() === start.toDateString();
+
+  const dateLabel = isToday ? 'Hoje' : isTomorrow ? 'Amanhã'
+    : start.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  const timeLabel = event.start.includes('T')
+    ? start.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : 'Dia inteiro';
+
+  const handleSaveEdit = async () => {
+    await onEdit && onEdit(event.id, form);
+    event.title = form.title;
+    event.location = form.location;
+    event.description = form.description;
+    if (form.date && form.time) {
+      event.start = `${form.date}T${form.time}:00`;
+      if (form.endTime) event.end = `${form.date}T${form.endTime}:00`;
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="rounded-xl p-4 mb-3"
+        style={{ background: 'var(--card)', border: '1px solid rgba(0,119,255,0.4)' }}>
+        <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+          placeholder="Título *"
+          className="w-full rounded-xl px-3 py-2 text-sm mb-2"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Data</label>
+            <input type="date" value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+              className="w-full rounded-xl px-3 py-2 text-sm"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+          </div>
+          <div>
+            <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Início</label>
+            <input type="time" value={form.time} onChange={e => setForm(p => ({ ...p, time: e.target.value }))}
+              className="w-full rounded-xl px-3 py-2 text-sm"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+          </div>
+        </div>
+        <div className="mb-2">
+          <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Término</label>
+          <input type="time" value={form.endTime} onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))}
+            className="w-full rounded-xl px-3 py-2 text-sm"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        </div>
+        <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
+          placeholder="Local"
+          className="w-full rounded-xl px-3 py-2 text-sm mb-2"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+          placeholder="Descrição / Pauta" rows={2}
+          className="w-full rounded-xl px-3 py-2 text-sm resize-none mb-3"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <div className="flex gap-2">
+          <button onClick={() => setEditing(false)}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+            Cancelar
+          </button>
+          <button onClick={handleSaveEdit}
+            className="flex-1 py-2 rounded-xl text-xs font-semibold text-white"
+            style={{ background: 'var(--blue)' }}>
+            Salvar
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl p-4 mb-3"
+      style={{
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+        borderLeft: `3px solid ${isToday ? 'var(--neon)' : '#0077FF'}`,
+      }}>
+      <div className="flex justify-between items-start gap-2">
+        <h3 className="font-semibold text-sm flex-1" style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
+          {event.title}
+        </h3>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="text-right">
+            <div className="text-xs font-semibold" style={{ color: isToday ? 'var(--neon)' : 'var(--blue)' }}>
+              {dateLabel}
+            </div>
+            <div className="text-xs" style={{ color: 'var(--muted)' }}>{timeLabel}</div>
+          </div>
+          <button onClick={() => setEditing(true)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center ml-1"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+            <Pencil size={12} />
+          </button>
+          <button onClick={() => onDelete && onDelete(event.id)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+      {event.location && (
+        <div className="flex items-center gap-1.5 mt-2">
+          <MapPin size={11} style={{ color: 'var(--muted)' }} />
+          <span className="text-xs" style={{ color: 'var(--muted)' }}>{event.location}</span>
+        </div>
+      )}
+      {event.attendees && (
+        <div className="flex items-center gap-1.5 mt-1">
+          <Users size={11} style={{ color: 'var(--muted)' }} />
+          <span className="text-xs" style={{ color: 'var(--muted)' }}>{event.attendees}</span>
+        </div>
+      )}
+    </div>
+  );
 }
 
-const QUICK_ACTIONS = [
-  '📅 O que tenho hoje?',
-  '✅ Minhas tarefas pendentes',
-  '📝 Nova proposta técnica',
-  '📧 Redigir e-mail profissional',
-  '📋 Agendar reunião',
-  '📊 Resumo da semana',
-];
+function NewEventModal({ onClose, onCreated }) {
+  const [form, setForm] = useState({ title: '', date: '', time: '', location: '', description: '' });
+  const [saving, setSaving] = useState(false);
 
-function Message({ msg }) {
-  const isUser = msg.role === 'user';
+  const handleSave = async () => {
+    if (!form.title || !form.date) return;
+    setSaving(true);
+    try {
+      await fetch('/api/calendar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      onCreated();
+      onClose();
+    } catch { setSaving(false); }
+  };
+
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end mb-4 animate-slide-up`}>
-      {!isUser && (
-        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
-          style={{
-            background: 'linear-gradient(135deg, #0055CC, #00BBFF)',
-            color: 'white', fontFamily: 'Syne, sans-serif',
-          }}>D</div>
-      )}
-      <div className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
-        isUser
-          ? 'rounded-br-sm'
-          : 'rounded-bl-sm'
-      }`} style={{
-        background: isUser
-          ? 'linear-gradient(135deg, #0055CC22, #00BBFF18)'
-          : 'var(--card)',
-        border: `1px solid ${isUser ? '#0077FF44' : 'var(--border)'}`,
-        color: 'var(--text)',
-      }}>
-        {msg.content}
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10 animate-slide-up"
+        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="w-10 h-1 rounded-full mx-auto mb-6" style={{ background: 'var(--border)' }} />
+        <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text)', fontFamily: 'Syne, sans-serif' }}>
+          Novo Evento
+        </h2>
+        <div className="space-y-3">
+          {[
+            { key: 'title', placeholder: 'Título *', type: 'text' },
+            { key: 'date', placeholder: 'Data *', type: 'date' },
+            { key: 'time', placeholder: 'Horário', type: 'time' },
+            { key: 'location', placeholder: 'Local', type: 'text' },
+          ].map(({ key, placeholder, type }) => (
+            <input key={key} type={type} placeholder={placeholder}
+              value={form[key]}
+              onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+              className="w-full rounded-xl px-4 py-3 text-sm"
+              style={{
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                color: 'var(--text)', fontFamily: 'Inter, sans-serif',
+              }} />
+          ))}
+          <textarea placeholder="Pauta / Descrição" rows={3}
+            value={form.description}
+            onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+            className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+            style={{
+              background: 'var(--bg)', border: '1px solid var(--border)',
+              color: 'var(--text)', fontFamily: 'Inter, sans-serif',
+            }} />
+        </div>
+        <button onClick={handleSave} disabled={saving || !form.title || !form.date}
+          className="btn-glow w-full py-3 rounded-2xl text-white font-semibold mt-4 text-sm"
+          style={{ fontFamily: 'Inter, sans-serif', opacity: saving || !form.title ? 0.6 : 1 }}>
+          {saving ? 'Salvando...' : 'Criar Evento no Google Calendar'}
+        </button>
       </div>
     </div>
   );
 }
 
-export default function ChatPanel() {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: 'Olá, Felipe! 👋 Sou a DURABEL, sua secretária executiva. Já estou conectada ao seu Google Calendar e Tarefas.\n\nComo posso ajudá-lo agora?',
-    }
-  ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [speaking, setSpeaking] = useState(false);
-  const [voiceError, setVoiceError] = useState('');
-  const audioRef = useRef(null);
-  const bottomRef = useRef(null);
-  const inputRef = useRef(null);
-  const recognitionRef = useRef(null);
+export default function CalendarPanel() {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loading]);
-
-  // Speech Recognition — cria nova instância a cada uso
-  const createRecognition = () => {
-    if (typeof window === 'undefined') return null;
-    const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (!SR) return null;
-    const recognition = new SR();
-    recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    return recognition;
-  };
-
-  const toggleListening = () => {
-    if (listening) {
-      recognitionRef.current?.stop();
-      setListening(false);
-      return;
-    }
-
-    // Cria nova instância a cada gravação
-    const recognition = createRecognition();
-    if (!recognition) return;
-
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setInput(prev => (prev ? prev + ' ' : '') + transcript);
-      setListening(false);
-    };
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
-  };
-
-  const sendMessage = useCallback(async (text) => {
-    const content = text || input.trim();
-    if (!content || loading) return;
-
-    setInput('');
-    setLoading(true);
-
-    const newMessages = [...messages, { role: 'user', content }];
-    setMessages(newMessages);
-
+  const editEvent = async (eventId, form) => {
     try {
-      // Pega chave do localStorage para enviar ao servidor
-      const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
-      const anthropicKey = localSettings.anthropic_key || '';
-
-      const res = await fetch('/api/chat', {
-        method: 'POST',
+      await fetch('/api/calendar', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, anthropicKey }),
+        body: JSON.stringify({
+          eventId,
+          title: form.title,
+          location: form.location,
+          description: form.description,
+          date: form.date,
+          time: form.time,
+          endTime: form.endTime,
+        }),
       });
-      const data = await res.json();
 
-      if (data.content) {
-        setMessages(prev => [...prev, { role: 'assistant', content: cleanMarkdown(data.content) }]);
-        // Reproduz voz se habilitado
-        if (voiceEnabled) {
-          try {
-            setSpeaking(true);
-            const voiceRes = await fetch('/api/voice', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: data.content.slice(0, 500) }),
-            });
-            if (voiceRes.ok) {
-              const blob = await voiceRes.blob();
-              const url = URL.createObjectURL(blob);
-              const audio = new Audio(url);
-              audio.volume = 1.0;
-              audioRef.current = audio;
-              audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
-              audio.onerror = (e) => { console.error('Audio error:', e); setSpeaking(false); };
-              // Tenta reproduzir — contorna política de autoplay do navegador
-              const playPromise = audio.play();
-              if (playPromise !== undefined) {
-                playPromise.catch(err => {
-                  console.warn('Autoplay bloqueado:', err);
-                  setSpeaking(false);
-                  setVoiceError('🔇 Clique na tela primeiro para ativar o áudio.');
-                  setTimeout(() => setVoiceError(''), 4000);
-                });
-              }
-            } else {
-              setSpeaking(false);
-              // Créditos esgotados ou erro — desativa voz e avisa
-              const errData = await voiceRes.json().catch(() => ({}));
-              if (voiceRes.status === 401 || voiceRes.status === 429) {
-                setVoiceEnabled(false);
-                setVoiceError(voiceRes.status === 429
-                  ? '🔇 Créditos ElevenLabs esgotados. Voz desativada.'
-                  : '🔇 Chave ElevenLabs inválida. Verifique em Configurações.');
-                setTimeout(() => setVoiceError(''), 5000);
-              }
-            }
-          } catch { setSpeaking(false); }
+      // Atualiza estado local para refletir mudança imediatamente
+      setEvents(prev => prev.map(e => {
+        if (e.id !== eventId) return e;
+        const updated = {
+          ...e,
+          title: form.title,
+          location: form.location,
+          description: form.description,
+        };
+        if (form.date && form.time) {
+          updated.start = `${form.date}T${form.time}:00`;
+          updated.end = form.endTime
+            ? `${form.date}T${form.endTime}:00`
+            : updated.end;
         }
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: 'Desculpe, tive um problema na conexão. Tente novamente.',
-        }]);
-      }
-    } catch {
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Erro de conexão. Verifique sua internet e tente novamente.',
-      }]);
-    }
-    setLoading(false);
-  }, [input, messages, loading]);
-
-  const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+        return updated;
+      }));
+    } catch {}
   };
+
+  const deleteEvent = async (eventId) => {
+    try {
+      await fetch(`/api/calendar?eventId=${eventId}`, { method: 'DELETE' });
+      setEvents(prev => prev.filter(e => e.id !== eventId));
+    } catch {}
+  };
+
+  const loadEvents = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/calendar?days=14');
+      const data = await res.json();
+      setEvents(data.events || []);
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { loadEvents(); }, []);
+
+  const today = events.filter(e => new Date(e.start).toDateString() === new Date().toDateString());
+  const upcoming = events.filter(e => new Date(e.start).toDateString() !== new Date().toDateString());
 
   return (
     <div className="flex flex-col h-full">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
-        {messages.map((msg, i) => <Message key={i} msg={msg} />)}
-
-        {loading && (
-          <div className="flex gap-3 items-end mb-4">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #0055CC, #00BBFF)', color: 'white' }}>
-              <Sparkles size={14} />
-            </div>
-            <div className="px-4 py-3 rounded-2xl rounded-bl-sm"
-              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-              <div className="flex gap-1.5 items-center">
-                {[0,1,2].map(i => (
-                  <div key={i} className={`typing-dot w-2 h-2 rounded-full`}
-                    style={{ background: 'var(--blue)' }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div>
+          <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Agenda</h2>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>
+            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={loadEvents} className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+          <button onClick={() => setShowModal(true)} className="btn-glow h-9 px-4 rounded-xl flex items-center gap-2 text-white text-sm"
+            style={{ fontFamily: 'Inter, sans-serif' }}>
+            <Plus size={15} /> Novo
+          </button>
+        </div>
       </div>
 
-      {/* Voice error toast */}
-      {voiceError && (
-        <div className="mx-4 mb-2 px-4 py-2.5 rounded-xl text-xs font-medium animate-fade-in flex items-center gap-2"
-          style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#FCA5A5' }}>
-          {voiceError}
-          <button onClick={() => setVoiceError('')} style={{ marginLeft: 'auto', color: '#F87171' }}>✕</button>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      {messages.length <= 2 && (
-        <div className="px-4 pb-3">
-          <div className="flex gap-2 flex-wrap">
-            {QUICK_ACTIONS.map(action => (
-              <button key={action}
-                onClick={() => sendMessage(action)}
-                className="text-xs px-3 py-1.5 rounded-full transition-all hover:scale-105"
-                style={{
-                  background: 'var(--card)', border: '1px solid var(--border)',
-                  color: 'var(--muted)', fontFamily: 'Inter, sans-serif',
-                }}>
-                {action}
-              </button>
+      <div className="flex-1 overflow-y-auto px-4 pt-4">
+        {loading ? (
+          <div className="flex flex-col gap-3">
+            {[1,2,3].map(i => (
+              <div key={i} className="h-20 rounded-xl animate-pulse" style={{ background: 'var(--card)' }} />
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="px-4 pb-6 pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-        <div className="flex gap-2 items-end">
-          <div className="flex-1 relative">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder={listening ? '🎙 Ouvindo...' : 'Fale com a DURABEL...'}
-              rows={1}
-              className="w-full resize-none rounded-2xl px-4 py-3 text-sm transition-all"
-              style={{
-                background: 'var(--card)', border: '1px solid var(--border)',
-                color: listening ? 'var(--neon)' : 'var(--text)',
-                fontFamily: 'Inter, sans-serif', maxHeight: '120px', overflow: 'auto',
-                lineHeight: '1.5',
-              }}
-              onInput={e => {
-                e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-              }}
-            />
+        ) : events.length === 0 ? (
+          <div className="text-center py-16">
+            <Calendar size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
+            <p style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>Nenhum evento nos próximos 14 dias</p>
           </div>
-
-          {/* Voice toggle button */}
-          <button onClick={() => {
-            if (speaking && audioRef.current) { audioRef.current.pause(); setSpeaking(false); }
-            setVoiceEnabled(v => !v);
-          }}
-            className="w-11 h-11 rounded-full flex items-center justify-center transition-all flex-shrink-0"
-            style={{
-              background: voiceEnabled ? 'rgba(124,58,237,0.15)' : 'var(--card)',
-              border: `1px solid ${voiceEnabled ? '#7C3AED44' : 'var(--border)'}`,
-              color: voiceEnabled ? (speaking ? '#A78BFA' : '#7C3AED') : 'var(--dim)',
-              boxShadow: speaking ? '0 0 15px rgba(124,58,237,0.4)' : 'none',
-            }}>
-            {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-          </button>
-
-          {/* Mic button */}
-          <button onClick={toggleListening}
-            className="w-11 h-11 rounded-full flex items-center justify-center transition-all flex-shrink-0"
-            style={{
-              background: listening ? 'rgba(0, 187, 255, 0.15)' : 'var(--card)',
-              border: `1px solid ${listening ? 'var(--neon)' : 'var(--border)'}`,
-              color: listening ? 'var(--neon)' : 'var(--muted)',
-              boxShadow: listening ? '0 0 15px rgba(0, 187, 255, 0.3)' : 'none',
-            }}>
-            {listening ? <MicOff size={18} /> : <Mic size={18} />}
-          </button>
-
-          {/* Send button */}
-          <button
-            onClick={() => sendMessage()}
-            disabled={!input.trim() || loading}
-            className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
-            style={{
-              background: input.trim() && !loading
-                ? 'linear-gradient(135deg, #0055CC, #0099FF)'
-                : 'var(--card)',
-              border: `1px solid ${input.trim() && !loading ? 'transparent' : 'var(--border)'}`,
-              color: input.trim() && !loading ? 'white' : 'var(--dim)',
-              boxShadow: input.trim() && !loading ? '0 4px 15px rgba(0, 119, 255, 0.4)' : 'none',
-              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-            }}>
-            <Send size={16} />
-          </button>
-        </div>
+        ) : (
+          <>
+            {today.length > 0 && (
+              <>
+                <p className="text-xs font-bold tracking-widest mb-2" style={{ color: 'var(--neon)', letterSpacing: '0.1em' }}>
+                  HOJE · {today.length}
+                </p>
+                {today.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} onEdit={editEvent} />)}
+              </>
+            )}
+            {upcoming.length > 0 && (
+              <>
+                <p className="text-xs font-bold tracking-widest mb-2 mt-4" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
+                  PRÓXIMOS · {upcoming.length}
+                </p>
+                {upcoming.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} onEdit={editEvent} />)}
+              </>
+            )}
+          </>
+        )}
       </div>
+
+      {showModal && <NewEventModal onClose={() => setShowModal(false)} onCreated={loadEvents} />}
     </div>
   );
 }
