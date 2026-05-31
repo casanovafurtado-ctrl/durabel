@@ -50,8 +50,8 @@ export default function FinancePanel() {
   useEffect(() => {
     async function load() {
       try {
-        const r = await window.storage?.get('finance_proposals');
-        if (r) setProposals(JSON.parse(r.value));
+        const saved = localStorage.getItem('durabel_proposals');
+        if (saved) setProposals(JSON.parse(saved));
       } catch {}
     }
     load();
@@ -59,7 +59,7 @@ export default function FinancePanel() {
 
   const save = async (updated) => {
     setProposals(updated);
-    try { await window.storage?.set('finance_proposals', JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem('durabel_proposals', JSON.stringify(updated)); } catch {}
   };
 
   const addProposal = () => {
