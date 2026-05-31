@@ -1,9 +1,10 @@
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { listTasks, createTask, completeTask } from '@/lib/google';
 
 export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.access_token) return Response.json({ error: 'Não autenticado' }, { status: 401 });
 
     const tasks = await listTasks(session.access_token);
@@ -15,7 +16,7 @@ export async function GET() {
 
 export async function POST(req) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.access_token) return Response.json({ error: 'Não autenticado' }, { status: 401 });
 
     const body = await req.json();
