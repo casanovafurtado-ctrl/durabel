@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Plus, Calendar, MapPin, Users } from 'lucide-react';
+import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide-react';
 
-function EventCard({ event }) {
+function EventCard({ event, onDelete }) {
   const start = new Date(event.start);
   const isToday = new Date().toDateString() === start.toDateString();
   const isTomorrow = new Date(Date.now() + 86400000).toDateString() === start.toDateString();
@@ -16,7 +16,7 @@ function EventCard({ event }) {
     : 'Dia inteiro';
 
   return (
-    <div className="rounded-xl p-4 mb-3 transition-all hover:scale-[1.01]"
+    <div className="rounded-xl p-4 mb-3"
       style={{
         background: 'var(--card)',
         border: '1px solid var(--border)',
@@ -26,11 +26,18 @@ function EventCard({ event }) {
         <h3 className="font-semibold text-sm flex-1" style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
           {event.title}
         </h3>
-        <div className="text-right flex-shrink-0">
-          <div className="text-xs font-semibold" style={{ color: isToday ? 'var(--neon)' : 'var(--blue)' }}>
-            {dateLabel}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="text-right">
+            <div className="text-xs font-semibold" style={{ color: isToday ? 'var(--neon)' : 'var(--blue)' }}>
+              {dateLabel}
+            </div>
+            <div className="text-xs" style={{ color: 'var(--muted)' }}>{timeLabel}</div>
           </div>
-          <div className="text-xs" style={{ color: 'var(--muted)' }}>{timeLabel}</div>
+          <button onClick={() => onDelete && onDelete(event.id)}
+            className="w-7 h-7 rounded-lg flex items-center justify-center ml-1"
+            style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
+            <Trash2 size={12} />
+          </button>
         </div>
       </div>
       {event.location && (
@@ -117,6 +124,13 @@ export default function CalendarPanel() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
+  const deleteEvent = async (eventId) => {
+    try {
+      await fetch(`/api/calendar?eventId=${eventId}`, { method: 'DELETE' });
+      setEvents(prev => prev.filter(e => e.id !== eventId));
+    } catch {}
+  };
+
   const loadEvents = async () => {
     setLoading(true);
     try {
@@ -172,7 +186,7 @@ export default function CalendarPanel() {
                 <p className="text-xs font-bold tracking-widest mb-2" style={{ color: 'var(--neon)', letterSpacing: '0.1em' }}>
                   HOJE · {today.length}
                 </p>
-                {today.map(e => <EventCard key={e.id} event={e} />)}
+                {today.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} />)}
               </>
             )}
             {upcoming.length > 0 && (
@@ -180,7 +194,7 @@ export default function CalendarPanel() {
                 <p className="text-xs font-bold tracking-widest mb-2 mt-4" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
                   PRÓXIMOS · {upcoming.length}
                 </p>
-                {upcoming.map(e => <EventCard key={e.id} event={e} />)}
+                {upcoming.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} />)}
               </>
             )}
           </>
