@@ -101,18 +101,20 @@ function MinuteCard({ minute, onDelete, onView }) {
 function MinuteView({ minute, onBack }) {
   return (
     <div className="flex flex-col h-full">
+
+      {/* Header fixo com botão bem visível */}
       <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0"
-        style={{ borderBottom: '1px solid var(--border)' }}>
+        style={{ background: 'var(--card)', borderBottom: '2px solid var(--blue)', zIndex: 10 }}>
         <button onClick={onBack}
-          className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
-          <ArrowLeft size={16} />
+          className="flex items-center gap-2 px-3 py-2 rounded-xl font-semibold text-sm"
+          style={{ background: 'var(--blue)', color: 'white', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
+          <ArrowLeft size={16} /> Voltar
         </button>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold truncate" style={{ color: 'var(--text)', fontFamily: 'Syne, sans-serif' }}>
             {minute.title}
           </p>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>{minute.date}</p>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>{minute.type} · {minute.date}</p>
         </div>
         <button onClick={() => exportMinutePDF(minute)}
           className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -120,6 +122,7 @@ function MinuteView({ minute, onBack }) {
           <Download size={16} />
         </button>
       </div>
+
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <pre className="text-sm leading-relaxed whitespace-pre-wrap"
           style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
