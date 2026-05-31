@@ -5,13 +5,30 @@ import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide
 
 function EventCard({ event, onDelete, onEdit }) {
   const [editing, setEditing] = useState(false);
+  const parseDate = (dateStr) => {
+    if (!dateStr) return '';
+    // Se for ISO string com timezone, converte para local
+    if (dateStr.includes('T')) {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('pt-BR', { timeZone: 'America/Recife' })
+        .split('/').reverse().join('-'); // DD/MM/YYYY → YYYY-MM-DD
+    }
+    return dateStr; // já está em YYYY-MM-DD
+  };
+
+  const parseTime = (dateStr) => {
+    if (!dateStr || !dateStr.includes('T')) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Recife' });
+  };
+
   const [form, setForm] = useState({
     title: event.title,
     location: event.location || '',
     description: event.description || '',
-    date: event.start ? event.start.split('T')[0] : '',
-    time: event.start?.includes('T') ? event.start.split('T')[1]?.slice(0,5) : '',
-    endTime: event.end?.includes('T') ? event.end.split('T')[1]?.slice(0,5) : '',
+    date: parseDate(event.start),
+    time: parseTime(event.start),
+    endTime: parseTime(event.end),
   });
 
   const start = new Date(event.start);
