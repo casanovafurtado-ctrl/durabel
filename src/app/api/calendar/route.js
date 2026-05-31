@@ -1,9 +1,10 @@
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { listEvents, createEvent } from '@/lib/google';
 
 export async function GET(req) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.access_token) return Response.json({ error: 'Não autenticado' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
@@ -18,7 +19,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.access_token) return Response.json({ error: 'Não autenticado' }, { status: 401 });
 
     const body = await req.json();
