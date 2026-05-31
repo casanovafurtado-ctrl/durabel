@@ -49,3 +49,26 @@ export async function DELETE(req) {
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function PATCH(req) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.access_token) return Response.json({ error: 'Não autenticado' }, { status: 401 });
+
+    const { eventId, title, location, description } = await req.json();
+    if (!eventId) return Response.json({ error: 'eventId obrigatório' }, { status: 400 });
+
+    const auth = getGoogleClient(session.access_token);
+    const calendar = google.calendar({ version: 'v3', auth });
+
+    const res = await calendar.events.patch({
+      calendarId: 'primary',
+      eventId,
+      resource: { summary: title, location, description },
+    });
+
+    return Response.json({ event: res.data });
+  } catch (err) {
+    return Response.json({ error: err.message }, { status: 500 });
+  }
+}
