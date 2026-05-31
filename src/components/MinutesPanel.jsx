@@ -98,11 +98,11 @@ function MinuteCard({ minute, onDelete, onView }) {
   );
 }
 
-function MinuteView({ minute, onBack }) {
+function MinuteView({ minute, onBack, onRegenerate }) {
+  const [showTypes, setShowTypes] = useState(false);
+
   return (
     <div className="flex flex-col h-full">
-
-      {/* Header fixo com botão bem visível */}
       <div className="px-4 py-3 flex items-center gap-3 flex-shrink-0"
         style={{ background: 'var(--card)', borderBottom: '2px solid var(--blue)', zIndex: 10 }}>
         <button onClick={onBack}
@@ -122,6 +122,34 @@ function MinuteView({ minute, onBack }) {
           <Download size={16} />
         </button>
       </div>
+
+      {/* Gerar outro documento */}
+      {minute.transcript && (
+        <div className="px-4 py-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+          <button onClick={() => setShowTypes(!showTypes)}
+            className="w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+            ✨ Gerar outro documento desta reunião
+            {showTypes ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {showTypes && (
+            <div className="mt-2 flex flex-col gap-1.5">
+              {ATA_TYPES.filter(t => t.label !== minute.type).map(type => (
+                <button key={type.id}
+                  onClick={() => { onRegenerate(minute, type.id); setShowTypes(false); }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-left"
+                  style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                  <span>{type.icon}</span>
+                  <div>
+                    <p className="text-xs font-semibold" style={{ color: 'var(--text)' }}>{type.label}</p>
+                    <p className="text-xs" style={{ color: 'var(--muted)' }}>{type.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <pre className="text-sm leading-relaxed whitespace-pre-wrap"
@@ -335,6 +363,7 @@ export default function MinutesPanel() {
           date: new Date().toLocaleString('pt-BR'),
           type: typeLabel,
           content: data.content,
+          transcript: textToUse, // Salva transcrição para reutilizar
         };
         await saveMinutes([newMinute, ...minutes]);
         setViewingMinute(newMinute);
@@ -348,6 +377,43 @@ export default function MinutesPanel() {
     setGenerating(false);
   };
 
+  const regenerateFromTranscript = async (minute, typeId) => {
+    const type = ATA_TYPES.find(t => t.id === typeId);
+    if (!type || !minute.transcript) return;
+
+    setGenerating(true);
+    setViewingMinute(null);
+
+    try {
+      const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
+      const anthropicKey = localSettings.anthropic_key || '';
+      const date = minute.date.split(',')[0];
+      const prompt = ATA_PROMPTS[typeId](minute.transcript, date);
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anthropicKey, messages: [{ role: 'user', content: prompt }] }),
+      });
+
+      const data = await res.json();
+      if (data.content) {
+        const newMinute = {
+          id: Date.now().toString(),
+          title: `${minute.title} — ${type.label}`,
+          date: new Date().toLocaleString('pt-BR'),
+          type: type.label,
+          content: data.content,
+          transcript: minute.transcript,
+        };
+        const updated = [newMinute, ...minutes];
+        await saveMinutes(updated);
+        setViewingMinute(newMinute);
+      }
+    } catch {}
+    setGenerating(false);
+  };
+
   const deleteMinute = async (id) => {
     await saveMinutes(minutes.filter(m => m.id !== id));
     if (viewingMinute?.id === id) setViewingMinute(null);
@@ -355,7 +421,7 @@ export default function MinutesPanel() {
 
   // View de ata
   if (viewingMinute) {
-    return <MinuteView minute={viewingMinute} onBack={() => setViewingMinute(null)} />;
+    return <MinuteView minute={viewingMinute} onBack={() => setViewingMinute(null)} onRegenerate={regenerateFromTranscript} />;
   }
 
   return (
