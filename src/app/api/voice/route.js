@@ -1,4 +1,5 @@
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 const DEFAULT_VOICE_ID = 'd25LrBWnB8S26i3kp9se';
 
@@ -12,7 +13,7 @@ async function getUserKey(email, field) {
 
 export async function POST(req) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     const email = session?.user?.email;
 
     const { text, voiceId } = await req.json();
