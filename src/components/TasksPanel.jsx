@@ -6,7 +6,7 @@ import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, X, 
 const PRIORITIES = ['alta', 'média', 'baixa'];
 const PRIORITY_COLORS = { alta: '#EF4444', média: '#F59E0B', baixa: '#10B981' };
 
-function TaskItem({ task, onComplete, onDelete, onRefresh }) {
+function TaskItem({ task, onComplete, onDelete, onRefresh, onUpdate }) {
   const [done, setDone] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
@@ -42,17 +42,16 @@ function TaskItem({ task, onComplete, onDelete, onRefresh }) {
   };
 
   const handleSaveEdit = async () => {
-    const res = await fetch('/api/tasks', {
+    await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'update', taskId: task.id, listId: task.listId, title: editTitle, notes: editNotes, due: editDue }),
     });
-    if (res.ok) {
-      task.title = editTitle;
-      task.notes = editNotes;
-      task.due = editDue ? new Date(editDue).toISOString() : null;
-      // Não recarrega — atualização local já reflete a mudança
-    }
+    // Atualiza localmente
+    task.title = editTitle;
+    task.notes = editNotes;
+    task.due = editDue ? `${editDue}T00:00:00Z` : null;
+    onUpdate && onUpdate(task.id, { title: editTitle, notes: editNotes, due: task.due });
     setEditing(false);
   };
 
@@ -233,7 +232,8 @@ export default function TasksPanel() {
             <p className="text-sm mt-1" style={{ color: 'var(--dim)' }}>Peça para a DURABEL criar uma!</p>
           </div>
         ) : (
-          tasks.map(t => <TaskItem key={t.id} task={t} onComplete={removeTask} onDelete={removeTask} onRefresh={loadTasks} />)
+          tasks.map(t => <TaskItem key={t.id} task={t} onComplete={removeTask} onDelete={removeTask} onRefresh={loadTasks}
+              onUpdate={(id, updated) => setTasks(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))} />)
         )}
       </div>
 
