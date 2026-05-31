@@ -1,4 +1,5 @@
 import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // Usa Vercel Blob para persistência — já conectado no projeto
 let blobModule = null;
@@ -70,7 +71,7 @@ async function saveSettings(email, data) {
 
 export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) return Response.json({ settings: {} });
 
     const data = await loadSettings(session.user.email);
@@ -88,7 +89,7 @@ export async function GET() {
 
 export async function POST(req) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) return Response.json({ error: 'Não autenticado' }, { status: 401 });
 
     const { fields } = await req.json();
