@@ -75,34 +75,40 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Speech Recognition
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.lang = 'pt-BR';
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-
-      recognitionRef.current.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setInput(prev => prev + transcript);
-        setListening(false);
-      };
-      recognitionRef.current.onerror = () => setListening(false);
-      recognitionRef.current.onend = () => setListening(false);
-    }
-  }, []);
+  // Speech Recognition — cria nova instância a cada uso
+  const createRecognition = () => {
+    if (typeof window === 'undefined') return null;
+    const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+    if (!SR) return null;
+    const recognition = new SR();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    return recognition;
+  };
 
   const toggleListening = () => {
-    if (!recognitionRef.current) return;
     if (listening) {
-      recognitionRef.current.stop();
+      recognitionRef.current?.stop();
       setListening(false);
-    } else {
-      recognitionRef.current.start();
-      setListening(true);
+      return;
     }
+
+    // Cria nova instância a cada gravação
+    const recognition = createRecognition();
+    if (!recognition) return;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => (prev ? prev + ' ' : '') + transcript);
+      setListening(false);
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
   };
 
   const sendMessage = useCallback(async (text) => {
