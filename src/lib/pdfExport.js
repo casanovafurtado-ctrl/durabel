@@ -54,12 +54,14 @@ function createPrintWindow(html) {
         flex-shrink: 0; position: sticky; top: 0; z-index: 10;
       }
       #durabel-pdf-modal .pdf-content {
-        flex: 1; overflow-y: auto; background: #f5f5f5;
+        flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+        background: #f5f5f5;
         display: flex; justify-content: center; padding: 20px 16px;
       }
       #durabel-pdf-modal .pdf-inner {
         background: white; width: 100%; max-width: 210mm;
         box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        height: auto; overflow: visible;
       }
       #durabel-pdf-modal .btn-back {
         background: rgba(255,255,255,0.1); color: white;
@@ -77,10 +79,26 @@ function createPrintWindow(html) {
       }
       @media print {
         #durabel-pdf-modal .pdf-topbar { display: none !important; }
-        #durabel-pdf-modal { position: static !important; }
-        #durabel-pdf-modal .pdf-content { padding: 0 !important; }
+        #durabel-pdf-modal {
+          position: static !important;
+          height: auto !important;
+          overflow: visible !important;
+        }
+        #durabel-pdf-modal .pdf-content {
+          padding: 0 !important;
+          overflow: visible !important;
+          height: auto !important;
+          background: white !important;
+        }
+        #durabel-pdf-modal .pdf-inner {
+          box-shadow: none !important;
+          max-width: 100% !important;
+          overflow: visible !important;
+          height: auto !important;
+        }
         body > *:not(#durabel-pdf-modal) { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        @page { margin: 10mm; }
       }
     </style>
     <div class="pdf-topbar">
