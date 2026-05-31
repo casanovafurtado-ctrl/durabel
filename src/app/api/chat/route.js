@@ -71,6 +71,9 @@ export async function POST(req) {
     const accessToken = session?.access_token;
     const email = session?.user?.email;
 
+    // Lê o body primeiro para ter acesso à clientKey
+    const { messages, anthropicKey: clientKey } = await req.json();
+
     // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
     let anthropicKey = clientKey || null;
     if (!anthropicKey && email) {
@@ -88,7 +91,6 @@ export async function POST(req) {
     }
 
     const client = new Anthropic({ apiKey: anthropicKey });
-    const { messages, anthropicKey: clientKey } = await req.json();
 
     const contextMessage = {
       role: 'user',
