@@ -6,11 +6,12 @@ import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, X, 
 const PRIORITIES = ['alta', 'média', 'baixa'];
 const PRIORITY_COLORS = { alta: '#EF4444', média: '#F59E0B', baixa: '#10B981' };
 
-function TaskItem({ task, onComplete, onDelete }) {
+function TaskItem({ task, onComplete, onDelete, onRefresh }) {
   const [done, setDone] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editNotes, setEditNotes] = useState(task.notes || '');
+  const [editDue, setEditDue] = useState(task.due ? task.due.split('T')[0] : '');
 
   const handleComplete = async () => {
     setDone(true);
@@ -32,22 +33,32 @@ function TaskItem({ task, onComplete, onDelete }) {
   };
 
   const handleSaveEdit = async () => {
-    await fetch('/api/tasks', {
+    const res = await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'update', taskId: task.id, listId: task.listId, title: editTitle, notes: editNotes }),
+      body: JSON.stringify({ action: 'update', taskId: task.id, listId: task.listId, title: editTitle, notes: editNotes, due: editDue }),
     });
-    task.title = editTitle;
-    task.notes = editNotes;
+    if (res.ok) {
+      task.title = editTitle;
+      task.notes = editNotes;
+      task.due = editDue ? new Date(editDue).toISOString() : null;
+      onRefresh && setTimeout(() => onRefresh(), 800);
+    }
     setEditing(false);
   };
 
   if (editing) {
     return (
-      <div className="p-4 rounded-xl mb-3" style={{ background: 'var(--card)', border: '1px solid var(--blue)44' }}>
+      <div className="p-4 rounded-xl mb-3" style={{ background: 'var(--card)', border: '1px solid rgba(0,119,255,0.4)' }}>
+        <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Título</label>
         <input value={editTitle} onChange={e => setEditTitle(e.target.value)}
           className="w-full rounded-xl px-3 py-2 text-sm mb-2"
           style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Prazo</label>
+        <input type="date" value={editDue} onChange={e => setEditDue(e.target.value)}
+          className="w-full rounded-xl px-3 py-2 text-sm mb-2"
+          style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        <label className="text-xs mb-1 block" style={{ color: 'var(--muted)' }}>Observações</label>
         <textarea value={editNotes} onChange={e => setEditNotes(e.target.value)}
           placeholder="Observações..." rows={2}
           className="w-full rounded-xl px-3 py-2 text-sm resize-none mb-3"
@@ -213,7 +224,7 @@ export default function TasksPanel() {
             <p className="text-sm mt-1" style={{ color: 'var(--dim)' }}>Peça para a DURABEL criar uma!</p>
           </div>
         ) : (
-          tasks.map(t => <TaskItem key={t.id} task={t} onComplete={removeTask} onDelete={removeTask} />)
+          tasks.map(t => <TaskItem key={t.id} task={t} onComplete={removeTask} onDelete={removeTask} onRefresh={loadTasks} />)
         )}
       </div>
 
