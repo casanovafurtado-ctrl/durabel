@@ -1,6 +1,7 @@
 'use client';
 
 import { useSession, signOut } from 'next-auth/react';
+import SplashScreen from '@/components/SplashScreen';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { MessageSquare, Calendar, CheckSquare, LogOut, Settings, Users, TrendingUp, FileText } from 'lucide-react';
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [tab, setTab] = useState('chat');
+  const [showSplash, setShowSplash] = useState(true);
   const [time, setTime] = useState('');
 
   useEffect(() => {
@@ -62,7 +64,9 @@ export default function Dashboard() {
   const firstName = session?.user?.name?.split(' ')[0] || 'Felipe';
 
   return (
-    <div className="h-screen flex flex-col max-w-lg mx-auto relative" style={{ background: 'var(--bg)' }}>
+    <>
+    {showSplash && <SplashScreen onDone={() => setShowSplash(false)} />}
+    <div className="h-screen flex flex-col max-w-lg mx-auto relative" style={{ background: 'var(--bg)', opacity: showSplash ? 0 : 1, transition: 'opacity 0.4s ease' }}>
 
       {/* Header */}
       <div className="px-4 pt-4 pb-3 flex items-center justify-between flex-shrink-0"
@@ -129,5 +133,7 @@ export default function Dashboard() {
         })}
       </div>
     </div>
+  </div>
+    </>
   );
 }
