@@ -1,6 +1,5 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import Anthropic from '@anthropic-ai/sdk';
 
 async function getUserKey(email, field) {
   try {
@@ -15,59 +14,65 @@ export async function POST(req) {
     const session = await getServerSession(authOptions);
     const email = session?.user?.email;
 
-    let anthropicKey = process.env.ANTHROPIC_API_KEY;
+    const { audio, mimeType, title, duration } = await req.json();
+    if (!audio) return Response.json({ error: 'Áudio não recebido' }, { status: 400 });
+
+    // Pega chave Anthropic
+    const { messages, anthropicKey: clientKey } = { messages: [], anthropicKey: null };
+    let anthropicKey = null;
     if (email) {
       const userKey = await getUserKey(email, 'anthropic_key');
       if (userKey) anthropicKey = userKey;
     }
-
     if (!anthropicKey) {
-      return Response.json({ error: 'Chave não configurada' }, { status: 400 });
+      return Response.json({ 
+        error: 'Chave da IA não configurada.',
+        fallback: true 
+      }, { status: 400 });
     }
 
-    const { audio, mimeType, title, duration } = await req.json();
+    // Usa Anthropic para transcrever — envia como base64
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        messages: [{
+          role: 'user',
+          content: `Você recebeu uma gravação de áudio de uma reunião em português brasileiro com duração de ${Math.floor(duration/60)}min ${duration%60}s.
 
-    const client = new Anthropic({ apiKey: anthropicKey });
+Por favor, transcreva o conteúdo desta reunião. Se não conseguir processar o áudio, retorne exatamente o texto: "AUDIO_NOT_SUPPORTED"
 
-    // Usa Claude para transcrever o áudio
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Transcreva este áudio de reunião em português brasileiro. 
-Identifique os participantes quando possível (ex: "Participante 1:", "Felipe:").
-Corrija erros de fala naturais. Mantenha o conteúdo fiel ao que foi dito.
-Duração do áudio: ${Math.floor(duration / 60)}min ${duration % 60}s.
-Retorne apenas a transcrição, sem comentários adicionais.`,
-          },
-          {
-            type: 'document',
-            source: {
-              type: 'base64',
-              media_type: mimeType.includes('mp4') ? 'audio/mp4' : 'audio/webm',
-              data: audio,
-            },
-          },
-        ],
-      }],
+Título da reunião: ${title}`,
+        }],
+      }),
     });
 
-    const content = response.content
-      .filter(b => b.type === 'text')
-      .map(b => b.text)
-      .join('');
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
 
-    return Response.json({ content });
+    if (text.includes('AUDIO_NOT_SUPPORTED') || !text) {
+      // Fallback — pede para digitar manualmente
+      return Response.json({ 
+        content: '',
+        manual: true,
+        message: 'Transcrição automática não disponível. Use o campo abaixo para digitar o conteúdo da reunião.'
+      });
+    }
+
+    return Response.json({ content: text });
+
   } catch (err) {
     console.error('Transcribe error:', err);
-    // Fallback: retorna mensagem para o usuário digitar manualmente
-    return Response.json({
+    return Response.json({ 
       content: '',
-      error: 'Transcrição automática não disponível. Digite o conteúdo manualmente.',
+      manual: true,
+      message: 'Erro na transcrição. Use o campo abaixo para digitar manualmente.'
     }, { status: 500 });
   }
 }
