@@ -215,8 +215,8 @@ export default function CRMPanel() {
   useEffect(() => {
     async function load() {
       try {
-        const r = await window.storage?.get('crm_clients');
-        if (r) setClients(JSON.parse(r.value));
+        const saved = localStorage.getItem('durabel_clients');
+        if (saved) setClients(JSON.parse(saved));
       } catch {}
     }
     load();
@@ -224,7 +224,7 @@ export default function CRMPanel() {
 
   const save = async (updated) => {
     setClients(updated);
-    try { await window.storage?.set('crm_clients', JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem('durabel_clients', JSON.stringify(updated)); } catch {}
   };
 
   const handleSave = (form) => {
