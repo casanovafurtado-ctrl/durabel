@@ -1,6 +1,8 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { put, list, del } from '@vercel/blob';
+
+// Armazenamento temporário no servidor — usado só como cache
+const serverCache = new Map();
 
 const SENSITIVE = ['anthropic_key', 'elevenlabs_key', 'zapi_token', 'smtp_password'];
 const ALL_FIELDS = [
@@ -17,56 +19,14 @@ const ALL_FIELDS = [
 function encode(val) { return Buffer.from(val).toString('base64'); }
 function decode(val) { try { return Buffer.from(val, 'base64').toString('utf8'); } catch { return val; } }
 
-function getBlobPrefix(email) {
-  return `settings/${email.replace(/[^a-z0-9]/gi, '_')}`;
-}
-
-async function loadSettings(email) {
-  try {
-    const prefix = getBlobPrefix(email);
-    const { blobs } = await list({ prefix });
-    if (blobs.length > 0) {
-      // Pega o mais recente
-      const latest = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))[0];
-      const res = await fetch(latest.url);
-      if (res.ok) return await res.json();
-    }
-  } catch (e) {
-    console.error('Blob load error:', e);
-  }
-  return {};
-}
-
-async function saveSettings(email, data) {
-  try {
-    const prefix = getBlobPrefix(email);
-
-    // Remove blobs antigos primeiro
-    const { blobs } = await list({ prefix });
-    for (const blob of blobs) {
-      await del(blob.url);
-    }
-
-    // Salva novo
-    await put(`${prefix}.json`, JSON.stringify(data), {
-      access: 'public',
-      addRandomSuffix: false,
-    });
-    return true;
-  } catch (e) {
-    console.error('Blob save error:', e);
-    return false;
-  }
-}
-
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) return Response.json({ settings: {} });
 
-    const data = await loadSettings(session.user.email);
+    const cached = serverCache.get(session.user.email) || {};
     const safe = {};
-    for (const [k, v] of Object.entries(data)) {
+    for (const [k, v] of Object.entries(cached)) {
       if (v) safe[k] = SENSITIVE.includes(k) ? '••••••••••••' : decode(v);
     }
     return Response.json({ settings: safe });
@@ -82,18 +42,15 @@ export async function POST(req) {
 
     const { fields } = await req.json();
     const email = session.user.email;
-
-    const data = await loadSettings(email);
+    const existing = serverCache.get(email) || {};
 
     for (const [k, v] of Object.entries(fields)) {
       if (v && !v.includes('•') && ALL_FIELDS.includes(k)) {
-        data[k] = encode(v);
+        existing[k] = encode(v);
       }
     }
 
-    const ok = await saveSettings(email, data);
-    if (!ok) return Response.json({ error: 'Erro ao salvar' }, { status: 500 });
-
+    serverCache.set(email, existing);
     return Response.json({ success: true });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
@@ -101,7 +58,7 @@ export async function POST(req) {
 }
 
 export async function getUserSettings(email) {
-  const data = await loadSettings(email);
+  const data = serverCache.get(email) || {};
   const decoded = {};
   for (const [k, v] of Object.entries(data)) {
     decoded[k] = decode(v);
