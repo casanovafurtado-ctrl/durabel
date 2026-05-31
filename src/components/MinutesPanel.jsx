@@ -67,12 +67,15 @@ export default function MinutesPanel() {
   const [error, setError] = useState('');
   const [manualMode, setManualMode] = useState(false);
   const [manualText, setManualText] = useState('');
+  const [liveTranscript, setLiveTranscript] = useState('');
 
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
   const streamRef = useRef(null);
   const wakeLockRef = useRef(null);
+  const liveRecognitionRef = useRef(null);
+  const liveTranscriptRef = useRef('');
 
   useEffect(() => {
     async function load() {
@@ -135,6 +138,38 @@ export default function MinutesPanel() {
         }
       } catch {}
 
+      // Inicia transcrição em tempo real DURANTE a gravação
+      const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+      if (SR) {
+        const liveRec = new SR();
+        liveRec.lang = 'pt-BR';
+        liveRec.continuous = true;
+        liveRec.interimResults = true;
+        liveTranscriptRef.current = '';
+
+        liveRec.onresult = (e) => {
+          let final = '';
+          let interim = '';
+          for (let i = 0; i < e.results.length; i++) {
+            if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
+            else interim += e.results[i][0].transcript;
+          }
+          liveTranscriptRef.current = final;
+          setLiveTranscript(final + interim);
+        };
+
+        liveRec.onend = () => {
+          // Reinicia automaticamente para gravar reuniões longas
+          if (mediaRecorderRef.current?.state === 'recording') {
+            try { liveRec.start(); } catch {}
+          }
+        };
+
+        liveRec.onerror = () => {};
+        liveRecognitionRef.current = liveRec;
+        try { liveRec.start(); } catch {}
+      }
+
       timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
 
     } catch (err) {
@@ -145,7 +180,14 @@ export default function MinutesPanel() {
   const stopRecording = () => {
     clearInterval(timerRef.current);
     mediaRecorderRef.current?.stop();
+    liveRecognitionRef.current?.stop();
     setStep('processing');
+
+    // Salva transcrição ao vivo se existir
+    const liveText = liveTranscriptRef.current.trim();
+    if (liveText) {
+      setTranscript(liveText);
+    }
 
     // Libera wake lock
     try { wakeLockRef.current?.release(); wakeLockRef.current = null; } catch {}
@@ -290,7 +332,10 @@ ${transcript}`,
     clearInterval(timerRef.current);
     mediaRecorderRef.current?.stop();
     streamRef.current?.getTracks().forEach(t => t.stop());
+    liveRecognitionRef.current?.stop();
     try { wakeLockRef.current?.release(); wakeLockRef.current = null; } catch {};
+    setLiveTranscript('');
+    liveTranscriptRef.current = '';
   };
 
   const deleteMinute = async (id) => {
@@ -363,12 +408,25 @@ ${transcript}`,
 
             <p className="text-sm mb-2" style={{ color: 'var(--muted)' }}>🔴 Gravando...</p>
 
-            <div className="rounded-xl px-4 py-3 mb-6 mx-4"
+            <div className="rounded-xl px-4 py-3 mb-4 mx-4"
               style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
               <p className="text-xs" style={{ color: '#10B981' }}>
-                ✅ Tela mantida acesa automaticamente durante a gravação
+                ✅ Tela acesa · Transcrevendo em tempo real
               </p>
             </div>
+
+            {liveTranscript ? (
+              <div className="mx-4 mb-6 rounded-xl p-3 max-h-32 overflow-auto"
+                style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+                  {liveTranscript}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-center mb-6 mx-4" style={{ color: 'var(--dim)' }}>
+                🎙 Fale normalmente — o texto aparecerá aqui
+              </p>
+            )}
 
             <button onClick={stopRecording}
               className="px-8 py-4 rounded-2xl text-white font-semibold flex items-center gap-2 mx-auto"
