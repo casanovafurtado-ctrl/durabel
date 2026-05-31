@@ -235,10 +235,7 @@ export default function CalendarPanel() {
           endTime: form.endTime,
         }),
       });
-      if (res.ok) {
-        // Recarrega eventos para confirmar mudança
-        setTimeout(() => loadEvents(), 800);
-      }
+      // Não recarrega — atualização local já reflete a mudança
     } catch {}
   };
 
