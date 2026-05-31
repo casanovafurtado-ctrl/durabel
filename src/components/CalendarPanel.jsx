@@ -205,11 +205,23 @@ export default function CalendarPanel() {
 
   const editEvent = async (eventId, form) => {
     try {
-      await fetch('/api/calendar', {
+      const res = await fetch('/api/calendar', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ eventId, ...form }),
+        body: JSON.stringify({
+          eventId,
+          title: form.title,
+          location: form.location,
+          description: form.description,
+          date: form.date,
+          time: form.time,
+          endTime: form.endTime,
+        }),
       });
+      if (res.ok) {
+        // Recarrega eventos para confirmar mudança
+        setTimeout(() => loadEvents(), 800);
+      }
     } catch {}
   };
 
