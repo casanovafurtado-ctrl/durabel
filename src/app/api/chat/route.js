@@ -71,10 +71,9 @@ export async function POST(req) {
     const accessToken = session?.access_token;
     const email = session?.user?.email;
 
-    // Pega chave Anthropic — apenas do app (Config → Chaves API)
-    // Fallback para env apenas em desenvolvimento
-    let anthropicKey = null;
-    if (email) {
+    // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
+    let anthropicKey = clientKey || null;
+    if (!anthropicKey && email) {
       const userKey = await getUserKey(email, 'anthropic_key');
       if (userKey) anthropicKey = userKey;
     }
@@ -89,7 +88,7 @@ export async function POST(req) {
     }
 
     const client = new Anthropic({ apiKey: anthropicKey });
-    const { messages } = await req.json();
+    const { messages, anthropicKey: clientKey } = await req.json();
 
     const contextMessage = {
       role: 'user',
