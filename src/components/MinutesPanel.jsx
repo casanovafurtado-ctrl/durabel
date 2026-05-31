@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, FileText, Trash2, Download, Clock, Square } from 'lucide-react';
+import { exportMinutePDF } from '@/lib/pdfExport';
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -26,10 +27,16 @@ function MinuteCard({ minute, onDelete }) {
           </p>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>{minute.date}</p>
         </div>
-        <button onClick={(e) => { e.stopPropagation(); onDelete(minute.id); }}
-          style={{ color: 'var(--dim)' }}>
-          <Trash2 size={15} />
-        </button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button onClick={(e) => { e.stopPropagation(); exportMinutePDF(minute); }}
+            style={{ color: 'var(--blue)' }} title="Exportar PDF">
+            <Download size={15} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(minute.id); }}
+            style={{ color: 'var(--dim)' }}>
+            <Trash2 size={15} />
+          </button>
+        </div>
       </button>
       {expanded && (
         <div className="px-4 pb-4 animate-fade-in" style={{ borderTop: '1px solid var(--border)' }}>
