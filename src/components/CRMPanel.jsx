@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Building2, Phone, Mail, MapPin, ChevronRight, X, Save, MessageCircle } from 'lucide-react';
+import { Plus, Search, Building2, Phone, Mail, MapPin, ChevronRight, X, Save, MessageCircle, Download } from 'lucide-react';
+import { exportClientPDF } from '@/lib/pdfExport';
 
 const STATUS_CONFIG = {
   prospecto: { label: 'Prospecto', color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
@@ -159,7 +160,7 @@ function ClientModal({ client, onClose, onSave }) {
   );
 }
 
-function ClientCard({ client, onEdit, onWhatsApp }) {
+function ClientCard({ client, onEdit, onWhatsApp, onExport }) {
   const cfg = STATUS_CONFIG[client.status] || STATUS_CONFIG.prospecto;
   return (
     <div className="rounded-2xl p-4 mb-3 transition-all"
@@ -334,7 +335,8 @@ export default function CRMPanel() {
           filtered.map(c => (
             <ClientCard key={c.id} client={c}
               onEdit={(c) => { setEditing(c); setShowModal(true); }}
-              onWhatsApp={handleWhatsApp} />
+              onWhatsApp={handleWhatsApp}
+              onExport={(c) => exportClientPDF(c)} />
           ))
         )}
       </div>
