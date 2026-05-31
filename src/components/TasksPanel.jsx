@@ -11,7 +11,16 @@ function TaskItem({ task, onComplete, onDelete, onRefresh }) {
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
   const [editNotes, setEditNotes] = useState(task.notes || '');
-  const [editDue, setEditDue] = useState(task.due ? task.due.split('T')[0] : '');
+  const parseDue = (dateStr) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('T')) {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('pt-BR', { timeZone: 'America/Recife' })
+        .split('/').reverse().join('-');
+    }
+    return dateStr.split('T')[0];
+  };
+  const [editDue, setEditDue] = useState(parseDue(task.due));
 
   const handleComplete = async () => {
     setDone(true);
