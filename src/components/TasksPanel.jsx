@@ -15,8 +15,11 @@ function TaskItem({ task, onComplete, onDelete, onRefresh, onUpdate }) {
     if (!dateStr) return '';
     if (dateStr.includes('T')) {
       const d = new Date(dateStr);
-      return d.toLocaleDateString('pt-BR', { timeZone: 'America/Recife' })
-        .split('/').reverse().join('-');
+      const recife = new Date(d.toLocaleString('en-US', { timeZone: 'America/Recife' }));
+      const y = recife.getFullYear();
+      const m = String(recife.getMonth() + 1).padStart(2, '0');
+      const day = String(recife.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
     }
     return dateStr.split('T')[0];
   };
@@ -50,7 +53,7 @@ function TaskItem({ task, onComplete, onDelete, onRefresh, onUpdate }) {
     // Atualiza localmente
     task.title = editTitle;
     task.notes = editNotes;
-    task.due = editDue ? `${editDue}T00:00:00Z` : null;
+    task.due = editDue ? `${editDue}T03:00:00Z` : null; // UTC-3 Recife
     onUpdate && onUpdate(task.id, { title: editTitle, notes: editNotes, due: task.due });
     setEditing(false);
   };
