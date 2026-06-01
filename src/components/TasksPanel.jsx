@@ -53,7 +53,7 @@ function TaskItem({ task, onComplete, onDelete, onRefresh, onUpdate }) {
     // Atualiza localmente
     task.title = editTitle;
     task.notes = editNotes;
-    task.due = editDue ? `${editDue}T03:00:00Z` : null; // UTC-3 Recife
+    task.due = editDue ? `${editDue}T12:00:00Z` : null; // Meio-dia UTC evita problema de fuso
     onUpdate && onUpdate(task.id, { title: editTitle, notes: editNotes, due: task.due });
     setEditing(false);
   };
