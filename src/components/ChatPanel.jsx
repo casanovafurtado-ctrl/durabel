@@ -90,25 +90,46 @@ export default function ChatPanel() {
   const toggleListening = () => {
     if (listening) {
       recognitionRef.current?.stop();
+      recognitionRef.current = null;
       setListening(false);
       return;
     }
 
-    // Cria nova instância a cada gravação
+    // Cria nova instância a cada gravação — garante que funciona múltiplas vezes
     const recognition = createRecognition();
-    if (!recognition) return;
+    if (!recognition) {
+      alert('Seu navegador não suporta reconhecimento de voz.');
+      return;
+    }
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
       setInput(prev => (prev ? prev + ' ' : '') + transcript);
-      setListening(false);
     };
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
+
+    recognition.onerror = (e) => {
+      console.warn('Mic error:', e.error);
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
 
     recognitionRef.current = recognition;
-    recognition.start();
     setListening(true);
+
+    try {
+      recognition.start();
+    } catch (e) {
+      setListening(false);
+      recognitionRef.current = null;
+    }
   };
 
   const sendMessage = useCallback(async (text) => {
