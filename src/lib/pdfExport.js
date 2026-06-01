@@ -98,7 +98,17 @@ function createPrintWindow(html) {
         }
         body > *:not(#durabel-pdf-modal) { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        @page { margin: 10mm; }
+        @page {
+          margin: 10mm 10mm 20mm 10mm;
+        }
+        .pdf-running-footer {
+          display: block !important;
+          position: fixed !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+        }
+        .pdf-last-footer { display: none !important; }
       }
     </style>
     <div class="pdf-topbar">
@@ -151,10 +161,10 @@ export function exportMinutePDF(minute) {
         
         <!-- Title -->
         <div style="border-left:3px solid #00BBFF;padding-left:16px;">
-          <div style="font-family:'Playfair Display',serif;font-size:22px;font-weight:600;color:#fff;line-height:1.3;">
+          <div style="font-family:'Arial Black',Arial,sans-serif;font-size:20px;font-weight:900;color:#fff;line-height:1.3;letter-spacing:0.01em;">
             ${minute.title}
           </div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:6px;font-weight:300;">
+          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px;font-weight:400;font-family:Arial,sans-serif;letter-spacing:0.05em;">
             ${minute.date}
           </div>
         </div>
@@ -191,28 +201,39 @@ export function exportMinutePDF(minute) {
       </div>
 
       <!-- FOOTER -->
-      <div style="padding:20px 50px;background:#F8FAFF;border-top:2px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">
-        <div style="font-size:10px;color:#6B7280;">
-          DURAR Consultoria e Engenharia — Patologia das Construções
+
+
+      <!-- Signature area — extracts named participants from content -->
+      <div style="padding:30px 50px 40px;background:#fff;">
+        <div style="font-size:11px;font-weight:700;color:#6B7280;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:20px;font-family:Arial,sans-serif;">
+          Assinaturas
         </div>
-        <div style="font-size:10px;color:#6B7280;">
-          Gerado por DURABEL em ${new Date().toLocaleDateString('pt-BR')}
+        <div style="display:flex;gap:40px;flex-wrap:wrap;">
+          ${(() => {
+            // Extrai participantes do conteúdo
+            const lines = (minute.content || '').split('\n');
+            const participants = [];
+            let inParticipants = false;
+            for (const line of lines) {
+              if (/participante[s]?/i.test(line)) { inParticipants = true; continue; }
+              if (inParticipants && line.trim() === '') { inParticipants = false; }
+              if (inParticipants && line.trim()) {
+                const name = line.trim().split('—')[0].split('-')[0].trim();
+                if (name.length > 2 && name.length < 60) participants.push(name);
+              }
+            }
+            // Se não achou participantes, usa genérico
+            const sigs = participants.length > 0 ? participants : ['Responsável Técnico', 'Participante'];
+            return sigs.map(name => `
+              <div style="min-width:180px;flex:1;margin-bottom:20px;">
+                <div style="border-top:1.5px solid #1A1A2E;padding-top:10px;">
+                  <div style="font-size:11px;color:#374151;font-family:Arial,sans-serif;font-weight:500;">${name}</div>
+                </div>
+              </div>
+            `).join('');
+          })()}
         </div>
       </div>
-
-      <!-- Signature area — only if no named participants in content -->
-      ${!minute.content?.match(/Bárbara|Avelar|Síndic|Subsíndic|Participante[s]?:/i) ? `
-      <div style="padding:30px 50px 40px;background:#fff;">
-        <div style="display:flex;gap:60px;margin-top:20px;">
-          ${['Responsável Técnico', 'Participante'].map(role => `
-            <div style="flex:1;text-align:center;">
-              <div style="border-top:1px solid #1A1A2E;padding-top:8px;">
-                <div style="font-size:11px;color:#6B7280;">${role}</div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>` : ''}
     </div>
   `;
   createPrintWindow(html);
@@ -315,7 +336,7 @@ export function exportClientPDF(client) {
 
       <!-- FOOTER -->
       <div style="padding:20px 50px;background:#F8FAFF;border-top:2px solid #E2E8F0;display:flex;justify-content:space-between;">
-        <div style="font-size:10px;color:#6B7280;">DURAR Consultoria e Engenharia — Patologia das Construções</div>
+        <div style="font-size:10px;color:#6B7280;">DURAR Consultoria e Engenharia</div>
         <div style="font-size:10px;color:#6B7280;">Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
       </div>
     </div>
@@ -455,7 +476,7 @@ export function exportFinancePDF(proposals) {
 
       <!-- FOOTER -->
       <div style="padding:20px 50px;background:#F8FAFF;border-top:2px solid #E2E8F0;display:flex;justify-content:space-between;">
-        <div style="font-size:10px;color:#6B7280;">DURAR Consultoria e Engenharia — Patologia das Construções</div>
+        <div style="font-size:10px;color:#6B7280;">DURAR Consultoria e Engenharia</div>
         <div style="font-size:10px;color:#6B7280;">Gerado por DURABEL em ${new Date().toLocaleDateString('pt-BR')}</div>
       </div>
     </div>
