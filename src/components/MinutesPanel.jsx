@@ -48,18 +48,24 @@ Formato limpo e direto. Sem asteriscos ou markdown.
 
 TRANSCRIÇÃO: ${transcript}`,
 
-  mindmap: (transcript, date) => `Com base na transcrição abaixo, crie um MAPA MENTAL textual da reunião em português.
+  mindmap: (transcript, date) => `Com base na transcrição abaixo, crie um MAPA MENTAL da reunião em português no formato HTML com caixas visuais.
 Data: ${date}
-Use estrutura hierárquica com indentação para mostrar relações entre temas.
-Exemplo:
-TEMA CENTRAL
-  Subtema 1
-    Detalhe A
-    Detalhe B
-  Subtema 2
-    Detalhe C
 
-Sem asteriscos ou markdown extra além da indentação.
+Use EXATAMENTE este formato HTML (sem markdown, sem explicações, apenas o HTML):
+
+<div style="font-family:Arial,sans-serif;padding:20px;">
+  <div style="background:#0077FF;color:white;padding:12px 20px;border-radius:10px;text-align:center;font-weight:bold;font-size:16px;margin-bottom:20px;">
+    TEMA CENTRAL DA REUNIÃO
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+    <div style="background:#E8F4FF;border:2px solid #0077FF;border-radius:8px;padding:12px;min-width:150px;max-width:200px;">
+      <div style="font-weight:bold;color:#0055CC;font-size:13px;margin-bottom:6px;">SUBTEMA 1</div>
+      <div style="font-size:11px;color:#374151;line-height:1.5;">• Detalhe A<br>• Detalhe B</div>
+    </div>
+  </div>
+</div>
+
+Crie quantas caixas forem necessárias. Cada caixinha = um tema importante da reunião.
 
 TRANSCRIÇÃO: ${transcript}`,
 };
@@ -152,10 +158,15 @@ function MinuteView({ minute, onBack, onRegenerate }) {
       )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        <pre className="text-sm leading-relaxed whitespace-pre-wrap"
-          style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
-          {minute.content}
-        </pre>
+        {minute.type === 'Mapa Mental' ? (
+          <div dangerouslySetInnerHTML={{ __html: minute.content }}
+            style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }} />
+        ) : (
+          <pre className="text-sm leading-relaxed whitespace-pre-wrap"
+            style={{ color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>
+            {minute.content}
+          </pre>
+        )}
       </div>
     </div>
   );
