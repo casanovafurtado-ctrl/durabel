@@ -11,7 +11,8 @@ export async function GET(req) {
 
     const { searchParams } = new URL(req.url);
     const days = parseInt(searchParams.get('days') || '14');
-    const events = await listEvents(session.access_token, days);
+    const includePast = searchParams.get('includePast') === 'true';
+    const events = await listEvents(session.access_token, days, includePast);
     return Response.json({ events });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
