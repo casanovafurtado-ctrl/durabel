@@ -4,11 +4,13 @@ import { listTasks, createTask, completeTask } from '@/lib/google';
 import { google } from 'googleapis';
 import { getGoogleClient } from '@/lib/google';
 
-export async function GET() {
+export async function GET(req) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.access_token) return Response.json({ error: 'Não autenticado' }, { status: 401 });
-    const tasks = await listTasks(session.access_token);
+    const { searchParams } = new URL(req.url);
+    const completed = searchParams.get('completed') === 'true';
+    const tasks = await listTasks(session.access_token, completed);
     return Response.json({ tasks });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
