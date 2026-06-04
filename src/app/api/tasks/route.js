@@ -42,10 +42,10 @@ export async function POST(req) {
     if (body.action === 'update') {
       const resource = { title: body.title, notes: body.notes };
       if (body.due) {
-        // Usa meio-dia UTC para evitar problema de fuso em qualquer timezone
+        // Google Tasks usa meia-noite UTC — envia data direta sem converter fuso
         resource.due = body.due.includes('T')
           ? body.due
-          : `${body.due}T12:00:00Z`;
+          : `${body.due}T00:00:00.000Z`;
       }
       const task = await tasks.tasks.patch({
         tasklist: body.listId || '@default',
