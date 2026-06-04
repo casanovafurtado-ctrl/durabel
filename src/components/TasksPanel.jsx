@@ -185,13 +185,18 @@ export default function TasksPanel() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [completedTasks, setCompletedTasks] = useState([]);
 
   const loadTasks = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/tasks');
-      const data = await res.json();
-      setTasks(data.tasks || []);
+      const [pending, completed] = await Promise.all([
+        fetch('/api/tasks').then(r => r.json()),
+        fetch('/api/tasks?completed=true').then(r => r.json()),
+      ]);
+      setTasks(pending.tasks || []);
+      setCompletedTasks(completed.tasks || []);
     } catch {}
     setLoading(false);
   };
