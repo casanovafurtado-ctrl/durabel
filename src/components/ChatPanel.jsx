@@ -83,53 +83,65 @@ export default function ChatPanel() {
     const recognition = new SR();
     recognition.lang = 'pt-BR';
     recognition.continuous = false;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
     return recognition;
   };
 
   const toggleListening = () => {
     if (listening) {
-      recognitionRef.current?.stop();
+      try { recognitionRef.current?.abort(); } catch {}
       recognitionRef.current = null;
       setListening(false);
       return;
     }
 
-    // Cria nova instância a cada gravação — garante que funciona múltiplas vezes
-    const recognition = createRecognition();
-    if (!recognition) {
-      alert('Seu navegador não suporta reconhecimento de voz.');
-      return;
+    // Garante que instância anterior foi destruída antes de criar nova
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
     }
 
-    recognition.onresult = (event) => {
-      let transcript = '';
-      for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
+    // Pequeno delay para iOS liberar o microfone
+    setTimeout(() => {
+      const recognition = createRecognition();
+      if (!recognition) return;
+
+      let finalTranscript = '';
+
+      recognition.onresult = (event) => {
+        finalTranscript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + ' ';
+          }
+        }
+        if (finalTranscript.trim()) {
+          setInput(prev => (prev ? prev.trim() + ' ' : '') + finalTranscript.trim());
+        }
+      };
+
+      recognition.onerror = (e) => {
+        if (e.error !== 'aborted') console.warn('Mic error:', e.error);
+        setListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognition.onend = () => {
+        setListening(false);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+      setListening(true);
+
+      try {
+        recognition.start();
+      } catch (e) {
+        setListening(false);
+        recognitionRef.current = null;
       }
-      setInput(prev => (prev ? prev + ' ' : '') + transcript);
-    };
-
-    recognition.onerror = (e) => {
-      console.warn('Mic error:', e.error);
-      setListening(false);
-      recognitionRef.current = null;
-    };
-
-    recognition.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-
-    recognitionRef.current = recognition;
-    setListening(true);
-
-    try {
-      recognition.start();
-    } catch (e) {
-      setListening(false);
-      recognitionRef.current = null;
-    }
+    }, 150); // 150ms de delay — suficiente para iOS liberar mic
   };
 
   const sendMessage = useCallback(async (text) => {
