@@ -12,23 +12,139 @@ const STATUS_CONFIG = {
   perdido:     { label: 'Perdido',            color: '#EF4444', bg: 'rgba(239,68,68,0.1)'  },
 };
 
-const SERVICE_TYPES = [
-  'Inspeção de Fachada',
-  'Inspeção de Cobertura',
-  'Inspeção Estrutural',
-  'Inspeção de Fundação',
-  'Vistoria Cautelar',
-  'Laudo de Patologia',
-  'Laudo Técnico de Avaliação',
-  'Inspeção Predial (IBAPE)',
-  'Impermeabilização',
-  'Recuperação Estrutural',
-  'Consultoria Técnica',
-  'Perícia de Engenharia',
-  'Acompanhamento de Obra',
-  'Diagnóstico de Manifestações Patológicas',
-  'Outro (personalizado)',
+const SERVICE_GROUPS = [
+  {
+    group: 'Inspeções e Vistorias',
+    items: [
+      'Inspeção Predial','Inspeção Predial com Base na NBR 16747',
+      'Inspeção de Fachadas','Inspeção de Coberturas','Inspeção de Impermeabilização',
+      'Inspeção de Reservatórios','Inspeção de Sistemas Hidrossanitários',
+      'Inspeção de Sistemas Elétricos','Inspeção de SPDA',
+      'Inspeção de Sistemas de Combate a Incêndio (SPCI)',
+      'Inspeção de Áreas de Lazer','Inspeção de Piscinas','Inspeção de Quadras Poliesportivas',
+      'Inspeção de Estruturas de Concreto','Inspeção de Estruturas Metálicas',
+      'Inspeção para Recebimento de Obras',
+      'Vistoria Cautelar de Vizinhança','Vistoria Técnica para Entrega de Empreendimentos',
+      'Vistoria de Unidades Privativas','Vistoria de Áreas Comuns',
+      'Vistoria para Identificação de Infiltrações','Vistoria para Identificação de Vazamentos',
+      'Vistoria de Reformas','Vistoria de Obras em Andamento','Vistoria para Recebimento de Serviços',
+    ]
+  },
+  {
+    group: 'Laudos Técnicos',
+    items: [
+      'Laudo de Inspeção Predial','Laudo de Manifestações Patológicas',
+      'Laudo de Fachadas','Laudo de Coberturas','Laudo de Impermeabilização',
+      'Laudo de Estruturas de Concreto','Laudo de Estruturas Metálicas',
+      'Laudo de Corrosão','Laudo de Biocorrosão (MIC)',
+      'Laudo de Infiltrações','Laudo de Vazamentos','Laudo de Desempenho Construtivo',
+      'Laudo de Recebimento de Obras','Laudo de Entrega de Empreendimentos',
+      'Laudo de Reservatórios','Laudo de Piscinas','Laudo de SPDA',
+      'Laudo de Sistemas de Combate a Incêndio',
+      'Laudo para Assistência Técnica em Garantia','Laudo para Ações Judiciais',
+      'Laudo para Produção Antecipada de Provas','Laudo para Seguro',
+      'Laudo para Compra e Venda de Imóveis',
+    ]
+  },
+  {
+    group: 'Perícias e Assistência Técnica',
+    items: [
+      'Assistência Técnica Judicial','Assistência Técnica Extrajudicial',
+      'Parecer Técnico de Engenharia','Parecer Técnico de Patologias','Parecer Técnico Estrutural',
+      'Produção de Quesitos Técnicos','Análise de Laudos Periciais',
+      'Impugnação Técnica de Laudos','Acompanhamento de Perícias Judiciais',
+      'Consultoria para Litígios Construtivos',
+    ]
+  },
+  {
+    group: 'Ensaios e Diagnósticos',
+    items: [
+      'Percussão de Revestimentos','Inspeção por Drone','Registro Fotográfico Aéreo',
+      'Mapeamento de Fachadas por Drone','Termografia Infravermelha',
+      'Medição de Umidade','Ensaio de Estanqueidade','Testes Hidráulicos','Testes de Pressão',
+      'Inspeção Endoscópica','Levantamento Cadastral','Mapeamento de Danos',
+      'Avaliação do Estado de Conservação','Avaliação do Estado de Manutenção',
+    ]
+  },
+  {
+    group: 'Manutenção e Gestão',
+    items: [
+      'Elaboração de Plano de Manutenção','Implantação de Plano de Manutenção',
+      'Gestão da Manutenção Predial','Auditoria de Manutenção','Diagnóstico da Manutenção',
+      'Calendário de Manutenção','Planejamento Orçamentário da Manutenção',
+      'Controle de Indicadores de Manutenção','Gestão da Durabilidade das Edificações',
+      'Elaboração de Procedimentos Operacionais','Criação de Checklists de Inspeção',
+      'Criação de Rotinas de Manutenção',
+    ]
+  },
+  {
+    group: 'Projetos e Especificações',
+    items: [
+      'Projeto de Recuperação Estrutural','Projeto de Recuperação de Fachadas',
+      'Projeto de Recuperação de Coberturas','Projeto de Impermeabilização',
+      'Projeto de Reforço Estrutural','Projeto de Recuperação de Reservatórios',
+      'Projeto de Recuperação de Piscinas','Memorial Descritivo',
+      'Especificação Técnica de Serviços','Compatibilização Técnica',
+    ]
+  },
+  {
+    group: 'Fiscalização e Gerenciamento',
+    items: [
+      'Fiscalização de Obras','Fiscalização de Reformas','Fiscalização de Serviços de Manutenção',
+      'Fiscalização de Recuperação Estrutural','Fiscalização de Impermeabilização',
+      'Fiscalização de Fachadas','Gerenciamento de Obras','Gerenciamento de Reformas',
+      'Gerenciamento de Recuperações',
+    ]
+  },
+  {
+    group: 'Consultoria Condominial',
+    items: [
+      'Consultoria para Síndicos','Consultoria para Administradoras',
+      'Consultoria para Condomínios Residenciais','Consultoria para Condomínios Comerciais',
+      'Consultoria para Condomínios Horizontais','Consultoria para Construtoras',
+      'Consultoria em Garantias Construtivas','Consultoria em Manutenção Predial',
+      'Consultoria em Durabilidade das Edificações','Consultoria para Assembleias',
+    ]
+  },
+  {
+    group: 'Reformas e Adequações',
+    items: [
+      'Gestão de Reformas conforme NBR 16280','Análise de Plano de Reforma',
+      'Aprovação Técnica de Reformas','Fiscalização de Reformas',
+      'Acompanhamento de Reformas','Recebimento de Reformas','Auditoria de Reformas Executadas',
+    ]
+  },
+  {
+    group: 'Termos e Contratações',
+    items: [
+      'Elaboração de Termo de Referência','Elaboração de Escopo Técnico',
+      'Elaboração de Caderno de Encargos','Apoio Técnico em Licitações Privadas',
+      'Análise de Propostas Técnicas','Equalização Técnica de Propostas',
+      'Acompanhamento de Contratações','Fiscalização de Contratos',
+    ]
+  },
+  {
+    group: 'Treinamentos e Capacitações',
+    items: [
+      'Treinamento para Síndicos','Treinamento para Zeladores',
+      'Treinamento para Equipes de Manutenção','Palestras Técnicas',
+      'Workshops de Engenharia','Cursos de Inspeção Predial','Cursos de Manutenção Predial',
+      'Cursos sobre NBR 16280','Cursos sobre Patologias das Construções',
+      'Cursos sobre Durabilidade das Edificações',
+    ]
+  },
+  {
+    group: 'Pesquisa e Área Acadêmica',
+    items: [
+      'Pesquisa Aplicada em Corrosão','Pesquisa Aplicada em Biocorrosão',
+      'Estudos de Durabilidade','Desenvolvimento de Metodologias de Inspeção',
+      'Consultoria Técnica para Pesquisas','Produção de Conteúdo Técnico e Científico',
+    ]
+  },
 ];
+
+// Flat list para compatibilidade
+const SERVICE_TYPES = SERVICE_GROUPS.flatMap(g => g.items).concat(['Outro (personalizado)']);
 
 // ─── Formatadores ─────────────────────────────────────
 const formatPhone = (v) => {
@@ -200,7 +316,12 @@ function ClientModal({ client, onClose, onSave }) {
                 className="w-full rounded-xl px-3 py-2.5 text-sm"
                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }}>
                 <option value="">Selecione...</option>
-                {SERVICE_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
+                {SERVICE_GROUPS.map(g => (
+                  <optgroup key={g.group} label={g.group}>
+                    {g.items.map(s => <option key={s} value={s}>{s}</option>)}
+                  </optgroup>
+                ))}
+                <option value="Outro (personalizado)">✏️ Outro (personalizado)</option>
               </select>
             </div>
           </div>
