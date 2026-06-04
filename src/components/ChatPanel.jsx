@@ -154,6 +154,13 @@ export default function ChatPanel() {
     const newMessages = [...messages, { role: 'user', content }];
     setMessages(newMessages);
 
+    // Para o microfone se estiver ativo antes de enviar
+    if (listening) {
+      try { recognitionRef.current?.abort(); } catch {}
+      recognitionRef.current = null;
+      setListening(false);
+    }
+
     try {
       // Pega chave do localStorage para enviar ao servidor
       const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
@@ -178,23 +185,47 @@ export default function ChatPanel() {
               body: JSON.stringify({ text: data.content.slice(0, 500) }),
             });
             if (voiceRes.ok) {
+              // Para áudio anterior se estiver tocando
+              if (audioRef.current) {
+                try { audioRef.current.pause(); audioRef.current.src = ''; } catch {}
+                audioRef.current = null;
+              }
+
               const blob = await voiceRes.blob();
               const url = URL.createObjectURL(blob);
-              const audio = new Audio(url);
+
+              // Cria elemento audio no DOM para melhor compatibilidade iOS
+              const audio = new Audio();
+              audio.preload = 'auto';
               audio.volume = 1.0;
               audioRef.current = audio;
-              audio.onended = () => { setSpeaking(false); URL.revokeObjectURL(url); };
-              audio.onerror = (e) => { console.error('Audio error:', e); setSpeaking(false); };
-              // Tenta reproduzir — contorna política de autoplay do navegador
-              const playPromise = audio.play();
-              if (playPromise !== undefined) {
-                playPromise.catch(err => {
+
+              audio.onended = () => {
+                setSpeaking(false);
+                URL.revokeObjectURL(url);
+                audioRef.current = null;
+              };
+              audio.onerror = (e) => {
+                console.error('Audio error:', e);
+                setSpeaking(false);
+                URL.revokeObjectURL(url);
+                audioRef.current = null;
+              };
+
+              audio.src = url;
+              audio.load();
+
+              // Aguarda carregamento antes de tocar
+              audio.oncanplaythrough = async () => {
+                try {
+                  await audio.play();
+                } catch (err) {
                   console.warn('Autoplay bloqueado:', err);
                   setSpeaking(false);
-                  setVoiceError('🔇 Clique na tela primeiro para ativar o áudio.');
+                  setVoiceError('🔇 Toque na tela e tente novamente para ativar o áudio.');
                   setTimeout(() => setVoiceError(''), 4000);
-                });
-              }
+                }
+              };
             } else {
               setSpeaking(false);
               // Créditos esgotados ou erro — desativa voz e avisa
