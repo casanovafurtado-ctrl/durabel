@@ -223,6 +223,7 @@ export default function CalendarPanel() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showPast, setShowPast] = useState(false);
 
   const editEvent = async (eventId, form) => {
     try {
@@ -270,7 +271,7 @@ export default function CalendarPanel() {
   const loadEvents = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/calendar?days=14');
+      const res = await fetch('/api/calendar?days=30&includePast=true');
       const data = await res.json();
       setEvents(data.events || []);
     } catch {}
@@ -279,8 +280,10 @@ export default function CalendarPanel() {
 
   useEffect(() => { loadEvents(); }, []);
 
-  const today = events.filter(e => new Date(e.start).toDateString() === new Date().toDateString());
-  const upcoming = events.filter(e => new Date(e.start).toDateString() !== new Date().toDateString());
+  const now = new Date();
+  const today = events.filter(e => new Date(e.start).toDateString() === now.toDateString());
+  const upcoming = events.filter(e => new Date(e.start) > now && new Date(e.start).toDateString() !== now.toDateString());
+  const past = events.filter(e => new Date(e.start) < now && new Date(e.start).toDateString() !== now.toDateString()).sort((a,b) => new Date(b.start) - new Date(a.start));
 
   return (
     <div className="flex flex-col h-full">
@@ -317,6 +320,22 @@ export default function CalendarPanel() {
           </div>
         ) : (
           <>
+            {/* Eventos passados */}
+            {past.length > 0 && (
+              <div className="mb-4">
+                <button onClick={() => setShowPast(s => !s)}
+                  className="flex items-center gap-2 mb-2 text-xs font-bold tracking-widest"
+                  style={{ color: 'var(--dim)', letterSpacing: '0.1em', background: 'none', border: 'none', cursor: 'pointer' }}>
+                  {showPast ? '▾' : '▸'} PASSADOS · {past.length}
+                </button>
+                {showPast && past.map(e => (
+                  <div key={e.id} style={{ opacity: 0.55 }}>
+                    <EventCard event={e} onDelete={deleteEvent} onEdit={editEvent} />
+                  </div>
+                ))}
+              </div>
+            )}
+
             {today.length > 0 && (
               <>
                 <p className="text-xs font-bold tracking-widest mb-2" style={{ color: 'var(--neon)', letterSpacing: '0.1em' }}>
