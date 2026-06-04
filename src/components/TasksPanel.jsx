@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, X, Save } from 'lucide-react';
+import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, CalendarPlus } from 'lucide-react';
 
 const PRIORITIES = ['alta', 'média', 'baixa'];
 const PRIORITY_COLORS = { alta: '#EF4444', média: '#F59E0B', baixa: '#10B981' };
@@ -13,14 +13,7 @@ function TaskItem({ task, onComplete, onDelete, onRefresh, onUpdate }) {
   const [editNotes, setEditNotes] = useState(task.notes || '');
   const parseDue = (dateStr) => {
     if (!dateStr) return '';
-    if (dateStr.includes('T')) {
-      const d = new Date(dateStr);
-      const recife = new Date(d.toLocaleString('en-US', { timeZone: 'America/Recife' }));
-      const y = recife.getFullYear();
-      const m = String(recife.getMonth() + 1).padStart(2, '0');
-      const day = String(recife.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    }
+    // Google Tasks sempre retorna meia-noite UTC — pega só a data sem converter fuso
     return dateStr.split('T')[0];
   };
   const [editDue, setEditDue] = useState(parseDue(task.due));
@@ -44,6 +37,26 @@ function TaskItem({ task, onComplete, onDelete, onRefresh, onUpdate }) {
     onDelete(task.id);
   };
 
+  const [calTime, setCalTime] = useState('09:00');
+  const [showCalModal, setShowCalModal] = useState(false);
+
+  const addToCalendar = async () => {
+    if (!task.due) return;
+    const date = task.due.split('T')[0];
+    await fetch('/api/calendar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: task.title,
+        date,
+        time: calTime,
+        description: task.notes || '',
+      }),
+    });
+    setShowCalModal(false);
+    alert('Adicionado ao Google Calendar!');
+  };
+
   const handleSaveEdit = async () => {
     await fetch('/api/tasks', {
       method: 'POST',
@@ -53,7 +66,7 @@ function TaskItem({ task, onComplete, onDelete, onRefresh, onUpdate }) {
     // Atualiza localmente
     task.title = editTitle;
     task.notes = editNotes;
-    task.due = editDue ? `${editDue}T12:00:00Z` : null; // Meio-dia UTC evita problema de fuso
+    task.due = editDue ? `${editDue}T00:00:00.000Z` : null;
     onUpdate && onUpdate(task.id, { title: editTitle, notes: editNotes, due: task.due });
     setEditing(false);
   };
@@ -233,15 +246,54 @@ export default function TasksPanel() {
               <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'var(--card)' }} />
             ))}
           </div>
-        ) : tasks.length === 0 ? (
-          <div className="text-center py-16">
-            <CheckSquare size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
-            <p style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>Nenhuma tarefa pendente</p>
-            <p className="text-sm mt-1" style={{ color: 'var(--dim)' }}>Peça para a DURABEL criar uma!</p>
-          </div>
         ) : (
-          tasks.map(t => <TaskItem key={t.id} task={t} onComplete={removeTask} onDelete={removeTask} onRefresh={loadTasks}
-              onUpdate={(id, updated) => setTasks(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))} />)
+          <>
+            {tasks.length === 0 && completedTasks.length === 0 ? (
+              <div className="text-center py-16">
+                <CheckSquare size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
+                <p style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>Nenhuma tarefa pendente</p>
+                <p className="text-sm mt-1" style={{ color: 'var(--dim)' }}>Peça para a DURABEL criar uma!</p>
+              </div>
+            ) : (
+              <>
+                {tasks.map(t => (
+                  <TaskItem key={t.id} task={t}
+                    onComplete={removeTask}
+                    onDelete={removeTask}
+                    onRefresh={loadTasks}
+                    onUpdate={(id, updated) => setTasks(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p))} />
+                ))}
+
+                {completedTasks.length > 0 && (
+                  <div className="mt-4 pb-4">
+                    <button onClick={() => setShowCompleted(s => !s)}
+                      className="flex items-center gap-2 mb-3 w-full text-left"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                      <span style={{ color: 'var(--dim)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em' }}>
+                        {showCompleted ? '▾' : '▸'} CONCLUÍDAS · {completedTasks.length}
+                      </span>
+                    </button>
+                    {showCompleted && completedTasks.map(t => (
+                      <div key={t.id} className="flex gap-3 items-start p-3 rounded-xl mb-2"
+                        style={{ background: 'var(--card)', border: '1px solid var(--border)', opacity: 0.55 }}>
+                        <CheckCircle2 size={18} style={{ color: '#10B981', flexShrink: 0, marginTop: 1 }} />
+                        <div className="flex-1">
+                          <p className="text-sm line-through" style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+                            {t.title}
+                          </p>
+                          {t.due && (
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--dim)' }}>
+                              📅 {t.due.split('T')[0].split('-').reverse().join('/')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </>
         )}
       </div>
 
