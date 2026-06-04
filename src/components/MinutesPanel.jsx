@@ -205,6 +205,17 @@ export default function MinutesPanel() {
     load();
   }, []);
 
+  // Cleanup quando sai da tela — para gravação se estiver ativa
+  useEffect(() => {
+    return () => {
+      clearInterval(timerRef.current);
+      liveRecognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      try { wakeLockRef.current?.release(); } catch {}
+    };
+  }, []);
+
   const saveMinutes = async (updated) => {
     setMinutes(updated);
     try { localStorage.setItem('durabel_minutes', JSON.stringify(updated)); } catch {}
