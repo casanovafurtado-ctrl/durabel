@@ -31,9 +31,11 @@ export function getTasks(accessToken) {
 /**
  * Lista próximos eventos do calendário
  */
-export async function listEvents(accessToken, daysAhead = 7) {
+export async function listEvents(accessToken, daysAhead = 7, includePast = false) {
   const calendar = getCalendar(accessToken);
-  const timeMin = new Date().toISOString();
+  const timeMin = includePast
+    ? new Date(Date.now() - 30 * 86400000).toISOString() // 30 dias atrás
+    : new Date().toISOString();
   const timeMax = new Date(Date.now() + daysAhead * 86400000).toISOString();
 
   const res = await calendar.events.list({
@@ -42,7 +44,7 @@ export async function listEvents(accessToken, daysAhead = 7) {
     timeMax,
     singleEvents: true,
     orderBy: 'startTime',
-    maxResults: 20,
+    maxResults: 50,
   });
 
   return (res.data.items || []).map(e => ({
@@ -101,7 +103,7 @@ export async function createEvent(accessToken, { title, date, time, endTime, loc
 /**
  * Lista tarefas do Google Tasks
  */
-export async function listTasks(accessToken) {
+export async function listTasks(accessToken, showCompleted = false) {
   const tasks = getTasks(accessToken);
 
   // Pega todas as listas de tarefas
@@ -112,18 +114,22 @@ export async function listTasks(accessToken) {
   for (const list of lists) {
     const res = await tasks.tasks.list({
       tasklist: list.id,
-      showCompleted: false,
+      showCompleted: showCompleted,
+      showHidden: showCompleted,
       maxResults: 20,
     });
-    const items = (res.data.items || []).map(t => ({
-      id: t.id,
-      listId: list.id,
-      listTitle: list.title,
-      title: t.title,
-      notes: t.notes || null,
-      due: t.due || null,
-      status: t.status,
-    }));
+    const items = (res.data.items || [])
+      .filter(t => showCompleted ? t.status === 'completed' : t.status !== 'completed')
+      .map(t => ({
+        id: t.id,
+        listId: list.id,
+        listTitle: list.title,
+        title: t.title,
+        notes: t.notes || null,
+        due: t.due || null,
+        status: t.status,
+        completed: t.completed || null,
+      }));
     allTasks.push(...items);
   }
   return allTasks;
