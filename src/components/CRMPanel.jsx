@@ -377,17 +377,20 @@ function ClientModal({ client, onClose, onSave }) {
 
 // ─── Card de Cliente ───────────────────────────────────
 function ClientCard({ client, onEdit, onExport, onWhatsApp }) {
+  const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[client.status] || STATUS_CONFIG.prospecto;
   const items = client.serviceItems || [];
   const totalValue = items.reduce((s, i) => s + parseCurrency(i.value), 0);
-  // Compatibilidade com clientes antigos que tinham campo "service"/"value"
-  const displayService = items.length > 0 ? items.map(i => i.name).filter(Boolean).join(', ') : (client.service || '');
   const displayValue = totalValue > 0 ? totalValue : parseCurrency(client.value || '');
+  const displayService = items.length > 0 ? items.map(i => i.name).filter(Boolean) : (client.service ? [client.service] : []);
 
   return (
-    <div className="rounded-2xl p-4 mb-3"
+    <div className="rounded-2xl mb-3 overflow-hidden"
       style={{ background: 'var(--card)', border: '1px solid var(--border)', borderLeft: `3px solid ${cfg.color}` }}>
-      <div className="flex items-start justify-between gap-2">
+
+      {/* Header clicável */}
+      <button className="w-full flex items-start gap-3 p-4 text-left"
+        onClick={() => setExpanded(e => !e)}>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="font-semibold text-sm" style={{ color: 'var(--text)', fontFamily: 'Syne' }}>{client.name}</span>
@@ -396,32 +399,103 @@ function ClientCard({ client, onEdit, onExport, onWhatsApp }) {
               {cfg.label}
             </span>
           </div>
-          {client.building && <p className="text-xs mb-0.5" style={{ color: 'var(--muted)' }}>🏢 {client.building}</p>}
-          {client.phone && <p className="text-xs mb-0.5" style={{ color: 'var(--muted)' }}>📞 {client.phone}</p>}
-          {displayService && <p className="text-xs mt-1" style={{ color: 'var(--blue)' }}>🔧 {displayService.length > 40 ? displayService.slice(0,40)+'…' : displayService}</p>}
+          {client.building && <p className="text-xs" style={{ color: 'var(--muted)' }}>🏢 {client.building}</p>}
+          {displayService.length > 0 && (
+            <p className="text-xs mt-1" style={{ color: 'var(--blue)' }}>
+              🔧 {displayService[0]}{displayService.length > 1 ? ` +${displayService.length - 1}` : ''}
+            </p>
+          )}
           {displayValue > 0 && (
             <p className="text-xs mt-1 font-bold" style={{ color: '#10B981' }}>
               R$ {displayValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           )}
         </div>
-        <div className="flex gap-1 flex-shrink-0">
-          {client.phone && (
-            <button onClick={() => onWhatsApp(client)} className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)', color: '#25D366' }}>
-              <MessageCircle size={14} />
-            </button>
-          )}
-          <button onClick={() => onExport(client)} className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)' }}>
-            <Download size={14} />
-          </button>
-          <button onClick={() => onEdit(client)} className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
-            <ChevronRight size={14} />
-          </button>
+        <div style={{ color: 'var(--dim)', flexShrink: 0, marginTop: 2 }}>
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
-      </div>
+      </button>
+
+      {/* Detalhes expandidos */}
+      {expanded && (
+        <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--border)' }}>
+          <div className="pt-3 space-y-2">
+            {client.phone && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs w-16 font-semibold" style={{ color: 'var(--dim)' }}>Telefone</span>
+                <span className="text-xs" style={{ color: 'var(--text)' }}>{client.phone}</span>
+              </div>
+            )}
+            {client.email && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs w-16 font-semibold" style={{ color: 'var(--dim)' }}>E-mail</span>
+                <span className="text-xs" style={{ color: 'var(--text)' }}>{client.email}</span>
+              </div>
+            )}
+            {client.doc && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs w-16 font-semibold" style={{ color: 'var(--dim)' }}>{client.docType || 'Doc'}</span>
+                <span className="text-xs" style={{ color: 'var(--text)' }}>{client.doc}</span>
+              </div>
+            )}
+            {client.address && (
+              <div className="flex items-start gap-2">
+                <span className="text-xs w-16 font-semibold flex-shrink-0" style={{ color: 'var(--dim)' }}>Endereço</span>
+                <span className="text-xs" style={{ color: 'var(--text)' }}>{client.address}</span>
+              </div>
+            )}
+            {items.length > 0 && (
+              <div className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                <p className="text-xs font-bold mb-2" style={{ color: 'var(--muted)', letterSpacing: '0.08em' }}>SERVIÇOS</p>
+                {items.map((item, i) => (
+                  <div key={i} className="flex justify-between items-center py-1.5"
+                    style={{ borderBottom: i < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span className="text-xs flex-1 pr-2" style={{ color: 'var(--text)' }}>{item.name || '—'}</span>
+                    <span className="text-xs font-bold flex-shrink-0" style={{ color: '#10B981' }}>
+                      {parseCurrency(item.value) > 0 ? `R$ ${parseCurrency(item.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                    </span>
+                  </div>
+                ))}
+                {totalValue > 0 && (
+                  <div className="flex justify-between pt-2 mt-1">
+                    <span className="text-xs font-bold" style={{ color: 'var(--muted)' }}>Total</span>
+                    <span className="text-sm font-bold" style={{ color: '#10B981', fontFamily: 'Syne' }}>
+                      R$ {totalValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            {client.notes && (
+              <div className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
+                <p className="text-xs font-bold mb-1" style={{ color: 'var(--muted)' }}>OBSERVAÇÕES</p>
+                <p className="text-xs leading-relaxed" style={{ color: 'var(--text)' }}>{client.notes}</p>
+              </div>
+            )}
+
+            {/* Ações */}
+            <div className="flex gap-2 pt-3">
+              {client.phone && (
+                <button onClick={() => onWhatsApp(client)}
+                  className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1"
+                  style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)', color: '#25D366', fontFamily: 'Inter' }}>
+                  <MessageCircle size={12} /> WhatsApp
+                </button>
+              )}
+              <button onClick={() => onExport(client)}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1"
+                style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)', fontFamily: 'Inter' }}>
+                <Download size={12} /> PDF
+              </button>
+              <button onClick={() => onEdit(client)}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter' }}>
+                ✏️ Editar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
