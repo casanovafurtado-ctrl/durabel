@@ -35,85 +35,53 @@ function createPrintWindow(html) {
 
   const today = new Date().toLocaleDateString('pt-BR');
 
+  // Carrega libs dinamicamente (scripts em innerHTML não executam)
+  const loadScript = (src) => new Promise((res, rej) => {
+    if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+
+  const footerHtml = `
+    <div style="background:#060B18;border-top:3px solid #0077FF;padding:4mm 10mm;margin-top:12mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <div>
+        <div style="font-family:Arial Black,sans-serif;font-size:12px;font-weight:900;color:#fff;letter-spacing:0.05em;">DUR<span style="color:#00BBFF;">AR</span></div>
+        <div style="font-family:Arial,sans-serif;font-size:7.5px;color:rgba(255,255,255,0.5);margin-top:1px;">CONSULTORIA E ENGENHARIA &nbsp;·&nbsp; Gerado por Durabel IA Secretária</div>
+      </div>
+      <div style="text-align:right;font-family:Arial,sans-serif;font-size:7.5px;color:rgba(255,255,255,0.5);">
+        <div>${today}</div>
+        <div id="pdf-page-info">Página 1 de 1</div>
+      </div>
+    </div>`;
+
   const modal = document.createElement('div');
   modal.id = 'durabel-pdf-modal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;background:#111827;';
 
-  // Rodapé dentro do HTML — confiável em todos os browsers
-  const footerHtml = `
-    <div style="
-      background:#060B18;border-top:3px solid #0077FF;
-      padding:6mm 10mm;margin-top:16mm;
-      display:flex;justify-content:space-between;align-items:center;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact;
-    ">
-      <div>
-        <div style="font-family:Arial Black,sans-serif;font-size:13px;font-weight:900;color:#fff;letter-spacing:0.05em;">
-          DUR<span style="color:#00BBFF;">AR</span>
-        </div>
-        <div style="font-family:Arial,sans-serif;font-size:8px;color:rgba(255,255,255,0.5);margin-top:2px;">
-          CONSULTORIA E ENGENHARIA &nbsp;·&nbsp; Gerado por Durabel IA Secretária
-        </div>
-      </div>
-      <div style="text-align:right;font-family:Arial,sans-serif;font-size:8px;color:rgba(255,255,255,0.5);">
-        <div>${today}</div>
-        <div id="pdf-page-info">Página 1 de 1</div>
-      </div>
-    </div>
-    <!-- Barra extra para cobrir o rodapé do browser iOS (URL + data) -->
-    <div style="
-      background:#060B18;height:18mm;margin-top:-1px;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact;
-    "></div>`;
-
   modal.innerHTML = `
-    <!-- Carrega jsPDF + html2canvas para download sem diálogo de impressão -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
     <style>
       #durabel-pdf-modal * { box-sizing: border-box; }
-      @media print {
-        body > *:not(#durabel-pdf-modal) { display: none !important; }
-        #durabel-pdf-modal { position: static !important; background: white !important; }
-        #durabel-pdf-modal .pv-bar { display: none !important; }
-        #durabel-pdf-modal .pv-scroll {
-          overflow: visible !important; padding: 0 !important;
-          background: white !important; display: block !important;
-          transform: none !important;
-        }
-        #durabel-pdf-modal .pv-doc {
-          transform: none !important; box-shadow: none !important;
-          width: 100% !important; min-width: unset !important;
-          position: static !important; top: auto !important; left: auto !important;
-        }
-        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        @page { size: A4; margin: 8mm 8mm 8mm 8mm; }
-      }
     </style>
-
-    <div class="pv-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#060B18;border-bottom:2px solid #0077FF;flex-shrink:0;">
+    <div id="pv-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#060B18;border-bottom:2px solid #0077FF;flex-shrink:0;">
       <div>
         <div style="font-family:Arial Black,sans-serif;font-size:14px;font-weight:900;color:#fff;letter-spacing:0.04em;">
           DUR<span style="color:#00BBFF;">AR</span>
           <span style="font-family:Inter,sans-serif;font-size:11px;font-weight:400;color:rgba(255,255,255,0.35);margin-left:6px;">· PDF</span>
         </div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.3);font-family:Inter,sans-serif;margin-top:2px;">
-          🤏 Dois dedos = zoom &nbsp;·&nbsp; Um dedo = mover
-        </div>
+        <div style="font-size:9px;color:rgba(255,255,255,0.3);font-family:Inter,sans-serif;margin-top:2px;">🤏 Dois dedos = zoom &nbsp;·&nbsp; Um dedo = mover</div>
       </div>
-      <div style="display:flex;gap:6px;align-items:center;">
-        <button id="pv-download" style="background:linear-gradient(135deg,#059669,#10B981);color:#fff;border:none;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="pv-download" style="background:linear-gradient(135deg,#0055CC,#0099FF);color:#fff;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;box-shadow:0 2px 10px rgba(0,119,255,0.4);">
           ⬇️ Baixar PDF
-        </button>
-        <button id="pv-print" style="background:linear-gradient(135deg,#0055CC,#0099FF);color:#fff;border:none;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
-          🖨️ Imprimir
         </button>
         <button id="pv-close" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;">✕</button>
       </div>
     </div>
-
-    <div class="pv-scroll" id="pv-scroll" style="flex:1;overflow:hidden;background:#1e1e2e;display:flex;justify-content:center;align-items:flex-start;touch-action:none;position:relative;">
-      <div class="pv-doc" id="pv-doc" style="background:white;width:794px;min-width:794px;transform-origin:top left;box-shadow:0 8px 40px rgba(0,0,0,0.6);position:absolute;top:0;left:0;">
+    <div id="pv-scroll" style="flex:1;overflow:hidden;background:#1e1e2e;display:flex;touch-action:none;position:relative;">
+      <div id="pv-doc" style="background:white;width:794px;min-width:794px;transform-origin:top left;box-shadow:0 8px 40px rgba(0,0,0,0.6);position:absolute;top:0;left:0;">
         ${html}
         ${footerHtml}
       </div>
@@ -123,7 +91,7 @@ function createPrintWindow(html) {
   document.body.appendChild(modal);
 
   const scroll = document.getElementById('pv-scroll');
-  const doc   = document.getElementById('pv-doc');
+  const doc = document.getElementById('pv-doc');
 
   // Escala inicial para caber na tela
   const sw = scroll.clientWidth || window.innerWidth;
@@ -136,110 +104,94 @@ function createPrintWindow(html) {
   };
   apply();
 
-  // Touch: pinch zoom + 1 dedo pan
-  let singleStart = null, startScale = scale, startTx = tx, startTy = ty;
+  // Pinch zoom + pan
+  let single = null, startScale = scale, startTx = tx, startTy = ty;
   let startDist = 1, startMidX = 0, startMidY = 0;
 
   scroll.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (e.touches.length === 1) {
-      singleStart = { x: e.touches[0].clientX - tx, y: e.touches[0].clientY - ty };
+      single = { x: e.touches[0].clientX - tx, y: e.touches[0].clientY - ty };
     } else if (e.touches.length === 2) {
-      singleStart = null;
-      const [t0, t1] = [e.touches[0], e.touches[1]];
-      startDist  = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
-      startMidX  = (t0.clientX + t1.clientX) / 2;
-      startMidY  = (t0.clientY + t1.clientY) / 2;
+      single = null;
+      const [a, b] = [e.touches[0], e.touches[1]];
+      startDist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      startMidX = (a.clientX + b.clientX) / 2;
+      startMidY = (a.clientY + b.clientY) / 2;
       startScale = scale; startTx = tx; startTy = ty;
     }
   }, { passive: false });
 
   scroll.addEventListener('touchmove', (e) => {
     e.preventDefault();
-    if (e.touches.length === 1 && singleStart) {
-      tx = e.touches[0].clientX - singleStart.x;
-      ty = e.touches[0].clientY - singleStart.y;
+    if (e.touches.length === 1 && single) {
+      tx = e.touches[0].clientX - single.x;
+      ty = e.touches[0].clientY - single.y;
       apply();
     } else if (e.touches.length === 2) {
-      const [t0, t1] = [e.touches[0], e.touches[1]];
-      const dist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
-      const midX = (t0.clientX + t1.clientX) / 2;
-      const midY = (t0.clientY + t1.clientY) / 2;
+      const [a, b] = [e.touches[0], e.touches[1]];
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const midX = (a.clientX + b.clientX) / 2;
+      const midY = (a.clientY + b.clientY) / 2;
       scale = Math.min(3, Math.max(0.15, startScale * (dist / startDist)));
-      tx    = startTx + (midX - startMidX);
-      ty    = startTy + (midY - startMidY);
+      tx = startTx + (midX - startMidX);
+      ty = startTy + (midY - startMidY);
       apply();
     }
   }, { passive: false });
 
-  scroll.addEventListener('touchend', () => { singleStart = null; }, { passive: true });
+  scroll.addEventListener('touchend', () => { single = null; }, { passive: true });
 
-  // ── Botão IMPRIMIR ──
-  document.getElementById('pv-print').onclick = () => {
-    const A4H = 1122;
-    const total = Math.max(1, Math.ceil(doc.scrollHeight / A4H));
-    const pEl = document.getElementById('pdf-page-info');
-    if (pEl) pEl.textContent = `Página 1 de ${total}`;
-    window.print();
-  };
-
-  // ── Botão BAIXAR PDF (html2canvas + jsPDF — sem diálogo do iOS) ──
+  // Baixar PDF
   document.getElementById('pv-download').onclick = async () => {
     const btn = document.getElementById('pv-download');
-    btn.textContent = '⏳ Gerando...';
+    btn.innerHTML = '⏳ Gerando PDF...';
     btn.disabled = true;
 
     try {
-      // Atualiza número de páginas
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+
+      // Atualiza páginas
       const A4H = 1122;
       const total = Math.max(1, Math.ceil(doc.scrollHeight / A4H));
       const pEl = document.getElementById('pdf-page-info');
       if (pEl) pEl.textContent = `Página 1 de ${total}`;
 
-      // Aguarda libs carregarem
-      const waitLib = (name, ms = 5000) => new Promise((res, rej) => {
-        const t = Date.now();
-        const check = () => window[name] ? res() : Date.now() - t > ms ? rej(new Error(name + ' não carregou')) : setTimeout(check, 100);
-        check();
-      });
-      await waitLib('html2canvas');
-      await waitLib('jspdf');
-
+      // Captura o documento
       const canvas = await window.html2canvas(doc, {
         scale: 2, useCORS: true, allowTaint: true,
         backgroundColor: '#ffffff', logging: false,
+        width: 794, windowWidth: 794,
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pdfW = pdf.internal.pageSize.getWidth();   // 210mm
+      const pdfH = pdf.internal.pageSize.getHeight();  // 297mm
 
-      const pdfW = pdf.internal.pageSize.getWidth();
-      const pdfH = pdf.internal.pageSize.getHeight();
-      const imgW = canvas.width;
+      const imgW = canvas.width;   // 794*2 = 1588px
       const imgH = canvas.height;
-      const ratio = pdfW / (imgW / 2 * 0.264583); // px to mm
-      const pageImgH = pdfH / 0.264583 * 2; // mm to px @2x
+      // quantos px de canvas cabem numa página A4
+      const pageCanvasH = Math.floor((pdfH / pdfW) * imgW);
 
-      let y = 0;
-      let page = 0;
+      let y = 0, page = 0;
       while (y < imgH) {
         if (page > 0) pdf.addPage();
-        const sliceH = Math.min(pageImgH, imgH - y);
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = imgW;
-        sliceCanvas.height = sliceH;
-        sliceCanvas.getContext('2d').drawImage(canvas, 0, y, imgW, sliceH, 0, 0, imgW, sliceH);
-        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, sliceH * 0.264583 / 2);
-        y += pageImgH;
-        page++;
+        const h = Math.min(pageCanvasH, imgH - y);
+        const slice = document.createElement('canvas');
+        slice.width = imgW; slice.height = h;
+        slice.getContext('2d').drawImage(canvas, 0, y, imgW, h, 0, 0, imgW, h);
+        const ratio = pdfH / pageCanvasH;
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, h * (pdfW / imgW));
+        y += pageCanvasH; page++;
       }
 
       pdf.save(`DURAR_${today.replace(/\//g,'_')}.pdf`);
     } catch (err) {
-      alert('Erro ao gerar PDF: ' + err.message);
+      alert('Erro ao gerar PDF:\n' + err.message);
     } finally {
-      btn.textContent = '⬇️ Baixar PDF';
+      btn.innerHTML = '⬇️ Baixar PDF';
       btn.disabled = false;
     }
   };
@@ -255,7 +207,7 @@ export function exportMinutePDF(minute) {
     <div style="width:210mm; min-height:297mm; padding:0; font-family:'Inter',sans-serif;">
       
       <!-- HEADER -->
-      <div style="background:linear-gradient(135deg, #060B18 0%, #0D1526 60%, #0055CC 100%); padding:40px 50px 30px; position:relative; overflow:hidden;">
+      <div style="background:linear-gradient(135deg, #060B18 0%, #0D1526 60%, #0055CC 100%); padding:20px 36px 16px; position:relative; overflow:hidden;">
         
         <!-- Decorative circles -->
         <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:rgba(0,187,255,0.08);"></div>
@@ -264,7 +216,7 @@ export function exportMinutePDF(minute) {
         <!-- Logo area -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
           <div>
-            <div style="font-family:'Arial Black',Arial,sans-serif;font-size:26px;font-weight:900;color:#fff;letter-spacing:0.03em;">
+            <div style="font-family:'Arial Black',Arial,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:0.03em;">
               DUR<span style="color:#00BBFF;">AR</span>
             </div>
             <div style="font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:0.25em;margin-top:2px;font-family:Arial,sans-serif;font-weight:600;">
@@ -279,7 +231,7 @@ export function exportMinutePDF(minute) {
         
         <!-- Title -->
         <div style="border-left:3px solid #00BBFF;padding-left:16px;">
-          <div style="font-family:'Arial Black',Arial,sans-serif;font-size:20px;font-weight:900;color:#fff;line-height:1.3;letter-spacing:0.01em;">
+          <div style="font-family:'Arial Black',Arial,sans-serif;font-size:18px;font-weight:900;color:#fff;line-height:1.3;letter-spacing:0.01em;">
             ${minute.title}
           </div>
           <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px;font-weight:400;font-family:Arial,sans-serif;letter-spacing:0.05em;">
@@ -292,7 +244,7 @@ export function exportMinutePDF(minute) {
       </div>
 
       <!-- CONTENT -->
-      <div style="padding:40px 50px;background:#fff;">
+      <div style="padding:24px 36px;background:#fff;">
         
         <!-- Info strip -->
         <div style="display:flex;gap:0;margin-bottom:32px;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;">
@@ -322,7 +274,7 @@ export function exportMinutePDF(minute) {
 
 
       <!-- Signature area — extracts named participants from content -->
-      <div style="padding:30px 50px 40px;background:#fff;">
+      <div style="padding:16px 36px 20px;background:#fff;">
         <div style="font-size:11px;font-weight:700;color:#6B7280;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:20px;font-family:Arial,sans-serif;">
           Assinaturas
         </div>
@@ -376,7 +328,7 @@ export function exportClientPDF(client) {
     <div style="width:210mm;min-height:297mm;font-family:'Inter',sans-serif;">
 
       <!-- HEADER -->
-      <div style="background:linear-gradient(135deg,#060B18,#0D1526);padding:36px 50px 28px;position:relative;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#060B18,#0D1526);padding:16px 36px 14px;position:relative;overflow:hidden;">
         <div style="position:absolute;top:0;right:0;width:300px;height:100%;background:linear-gradient(135deg,transparent,rgba(0,119,255,0.08));"></div>
         
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
@@ -395,7 +347,7 @@ export function exportClientPDF(client) {
 
         <div style="margin-top:24px;">
           <div style="font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:0.2em;text-transform:uppercase;">Ficha de Cliente</div>
-          <div style="font-family:'Playfair Display',serif;font-size:24px;font-weight:600;color:#fff;margin-top:4px;">${client.name}</div>
+          <div style="font-family:'Playfair Display',serif;font-size:18px;font-weight:600;color:#fff;margin-top:2px;">${client.name}</div>
           ${client.building ? `<div style="font-size:13px;color:#00BBFF;margin-top:4px;">🏢 ${client.building}</div>` : ''}
         </div>
       </div>
