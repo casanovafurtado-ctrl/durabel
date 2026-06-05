@@ -70,10 +70,16 @@ export default function ChatPanel() {
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const listeningRef = useRef(false); // Ref para acessar listening dentro de useCallback
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  // Mantém ref sincronizado com state — garante valor atual dentro de useCallback
+  useEffect(() => {
+    listeningRef.current = listening;
+  }, [listening]);
 
   // Speech Recognition — cria nova instância a cada uso
   const createRecognition = () => {
@@ -154,10 +160,11 @@ export default function ChatPanel() {
     const newMessages = [...messages, { role: 'user', content }];
     setMessages(newMessages);
 
-    // Para o microfone se estiver ativo antes de enviar
-    if (listening) {
+    // Para o microfone — usa ref para garantir valor atual (useCallback closure issue)
+    if (listeningRef.current) {
       try { recognitionRef.current?.abort(); } catch {}
       recognitionRef.current = null;
+      listeningRef.current = false;
       setListening(false);
     }
 
