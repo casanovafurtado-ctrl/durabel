@@ -204,37 +204,7 @@ export function exportMinutePDF(minute) {
             }
           </div>
 
-          <!-- Assinaturas -->
-          <div style="margin-top:40px;padding-top:24px;border-top:1px solid #E2E8F0;">
-            <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:28px;font-family:Arial,sans-serif;">
-              Assinaturas dos Participantes
-            </div>
-            <div style="display:flex;gap:32px;flex-wrap:wrap;">
-              ${(() => {
-                const lines = (minute.content || '').split('\n');
-                const participants = [];
-                let inPart = false;
-                for (const line of lines) {
-                  if (/participante[s]?/i.test(line)) { inPart = true; continue; }
-                  if (inPart && line.trim() === '') { inPart = false; }
-                  if (inPart && line.trim()) {
-                    const name = line.trim().split('—')[0].split('-')[0].trim();
-                    if (name.length > 2 && name.length < 60) participants.push(name);
-                  }
-                }
-                const sigs = participants.length > 0 ? participants : ['Responsável Técnico', 'Participante 1', 'Participante 2'];
-                return sigs.map(name => `
-                  <div style="flex:1;min-width:180px;margin-bottom:24px;">
-                    <div style="height:40px;"></div>
-                    <div style="border-top:1.5px solid #1A1A2E;padding-top:8px;">
-                      <div style="font-size:11px;color:#374151;font-family:Arial,sans-serif;font-weight:600;">${name}</div>
-                      <div style="font-size:9px;color:#9CA3AF;margin-top:2px;font-family:Arial,sans-serif;">Assinatura</div>
-                    </div>
-                  </div>
-                `).join('');
-              })()}
-            </div>
-          </div>
+
 
         </td></tr>
       </tbody>
@@ -471,6 +441,196 @@ export function exportFinancePDF(proposals) {
         ` : ''}
       </div>
 
+    </div>
+  `;
+  createPrintWindow(html);
+}
+
+// ─────────────────────────────────────────────────────────
+// TEMPLATE: RELATÓRIO EXECUTIVO COM IA
+// ─────────────────────────────────────────────────────────
+export function exportReportPDF({ report, metrics, periodLabel, range }) {
+  const MONTHS_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const fmtCurr = (v) => v > 0 ? `R$ ${Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : 'R$ 0,00';
+
+  // Mini bar chart SVG inline
+  const monthSlice = metrics.monthlyData.slice(range.start, range.end + 1);
+  const maxV = Math.max(...monthSlice, 1);
+  const barW = Math.max(Math.floor(480 / monthSlice.length) - 4, 10);
+  const bars = monthSlice.map((v, i) => {
+    const h = Math.max(Math.round((v / maxV) * 80), 2);
+    const x = i * (barW + 4);
+    const color = v > 0 ? '#0077FF' : '#E2E8F0';
+    return `
+      <rect x="${x}" y="${80 - h}" width="${barW}" height="${h}" rx="3" fill="${color}" opacity="0.85"/>
+      <text x="${x + barW/2}" y="96" text-anchor="middle" font-size="8" fill="#9CA3AF" font-family="Arial">${MONTHS_SHORT[range.start + i]}</text>
+    `;
+  }).join('');
+  const svgWidth = monthSlice.length * (barW + 4);
+  const chartSVG = `<svg width="${svgWidth}" height="100" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
+
+  const html = `
+    <div style="width:210mm;min-height:297mm;font-family:Arial,sans-serif;padding-bottom:20mm;">
+
+      <!-- HEADER -->
+      <div style="background:linear-gradient(135deg,#060B18 0%,#0D1A3A 60%,#0044AA 100%);padding:40px 50px 32px;position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-50px;right:-50px;width:220px;height:220px;border-radius:50%;background:rgba(0,187,255,0.06);"></div>
+        <div style="position:absolute;bottom:-40px;left:20%;width:160px;height:160px;border-radius:50%;background:rgba(0,119,255,0.05);"></div>
+
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;">
+          <div>
+            <div style="font-family:'Arial Black',Arial,sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:0.03em;">
+              DUR<span style="color:#00BBFF;">AR</span>
+            </div>
+            <div style="font-size:8px;color:rgba(255,255,255,0.4);letter-spacing:0.25em;margin-top:3px;">CONSULTORIA E ENGENHARIA</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:0.15em;text-transform:uppercase;">Documento</div>
+            <div style="font-size:13px;color:#00BBFF;margin-top:3px;font-weight:600;">Relatório Executivo</div>
+          </div>
+        </div>
+
+        <div style="border-left:3px solid #00BBFF;padding-left:16px;">
+          <div style="font-size:22px;font-weight:900;color:#fff;letter-spacing:0.01em;">${periodLabel}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.45);margin-top:5px;">Gerado em ${new Date().toLocaleDateString('pt-BR')} · DURABEL IA Secretária</div>
+        </div>
+
+        <div style="height:1px;background:linear-gradient(90deg,#00BBFF,transparent);margin-top:24px;"></div>
+      </div>
+
+      <!-- KPIs -->
+      <div style="padding:32px 50px 0;">
+        <div style="display:flex;gap:0;border:1px solid #E2E8F0;border-radius:12px;overflow:hidden;margin-bottom:28px;">
+          ${[
+            { label: 'Faturado', value: fmtCurr(metrics.totalFaturado), color: '#10B981' },
+            { label: 'Conversão', value: `${metrics.conversion}%`, color: '#0077FF' },
+            { label: 'Pipeline', value: fmtCurr(metrics.pipeline), color: '#F59E0B' },
+            { label: 'Ticket Médio', value: fmtCurr(metrics.ticketMedio), color: '#8B5CF6' },
+          ].map((k, i) => `
+            <div style="flex:1;padding:16px 20px;background:${i%2===0?'#F8FAFF':'#fff'};border-right:1px solid #E2E8F0;text-align:center;">
+              <div style="font-size:9px;color:#6B7280;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:5px;">${k.label}</div>
+              <div style="font-size:14px;font-weight:700;color:${k.color};">${k.value}</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Conversão visual -->
+        <div style="display:flex;gap:12px;margin-bottom:28px;">
+          ${[
+            { n: metrics.fechadasCount, label: 'Fechadas', color: '#10B981', bg: '#F0FDF4' },
+            { n: metrics.enviadasCount, label: 'Em aberto', color: '#F59E0B', bg: '#FFFBEB' },
+            { n: metrics.perdidasCount, label: 'Perdidas', color: '#EF4444', bg: '#FEF2F2' },
+            { n: metrics.total, label: 'Total', color: '#374151', bg: '#F9FAFB' },
+          ].map(k => `
+            <div style="flex:1;padding:14px;border-radius:10px;background:${k.bg};text-align:center;">
+              <div style="font-size:22px;font-weight:700;color:${k.color};">${k.n}</div>
+              <div style="font-size:9px;color:#6B7280;margin-top:2px;">${k.label}</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Gráfico -->
+        ${monthSlice.length > 1 ? `
+        <div style="margin-bottom:28px;">
+          <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:12px;">Faturamento no Período</div>
+          <div style="display:flex;justify-content:center;padding:12px;background:#F8FAFF;border:1px solid #E2E8F0;border-radius:10px;">
+            ${chartSVG}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Análise da IA -->
+        <div style="margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <div style="width:3px;height:18px;background:linear-gradient(180deg,#0077FF,#00BBFF);border-radius:2px;"></div>
+            <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:0.12em;text-transform:uppercase;">Análise Executiva</div>
+          </div>
+          <div style="font-size:13px;line-height:1.8;color:#374151;background:#F8FAFF;padding:16px 20px;border-radius:10px;border-left:3px solid #0077FF;">
+            ${report.summary || ''}
+          </div>
+        </div>
+
+        <!-- Destaques -->
+        ${report.highlights?.length ? `
+        <div style="margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <div style="width:3px;height:18px;background:#10B981;border-radius:2px;"></div>
+            <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:0.12em;text-transform:uppercase;">Destaques Positivos</div>
+          </div>
+          ${report.highlights.map(h => `
+            <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;color:#374151;line-height:1.6;">
+              <span style="color:#10B981;font-weight:700;flex-shrink:0;margin-top:1px;">▸</span><span>${h}</span>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+
+        <!-- Alertas -->
+        ${report.alerts?.length ? `
+        <div style="margin-bottom:22px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:16px 20px;">
+          <div style="font-size:9px;font-weight:700;color:#92400E;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;">⚠ Atenção</div>
+          ${report.alerts.map(a => `
+            <div style="display:flex;gap:8px;margin-bottom:6px;font-size:12px;color:#374151;line-height:1.6;">
+              <span style="color:#F59E0B;flex-shrink:0;margin-top:1px;">•</span><span>${a}</span>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+
+        <!-- Recomendações -->
+        ${report.recommendations?.length ? `
+        <div style="margin-bottom:22px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:16px 20px;">
+          <div style="font-size:9px;font-weight:700;color:#1D4ED8;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;">Recomendações</div>
+          ${report.recommendations.map((r, i) => `
+            <div style="display:flex;gap:10px;margin-bottom:8px;font-size:12px;color:#374151;line-height:1.6;">
+              <span style="background:#0077FF;color:white;font-size:9px;font-weight:700;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">${i+1}</span>
+              <span>${r}</span>
+            </div>
+          `).join('')}
+        </div>
+        ` : ''}
+
+        <!-- Perspectiva -->
+        ${report.outlook ? `
+        <div style="margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <div style="width:3px;height:18px;background:linear-gradient(180deg,#8B5CF6,#0077FF);border-radius:2px;"></div>
+            <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:0.12em;text-transform:uppercase;">Perspectiva</div>
+          </div>
+          <div style="font-size:13px;line-height:1.8;color:#374151;">${report.outlook}</div>
+        </div>
+        ` : ''}
+
+        <!-- Top serviços -->
+        ${metrics.topServices?.length ? `
+        <div style="margin-bottom:22px;">
+          <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px;">Top Serviços no Período</div>
+          ${metrics.topServices.map(([name, data], i) => {
+            const maxSvc = metrics.topServices[0][1].total;
+            const pct = Math.round((data.total/maxSvc)*100);
+            return `
+            <div style="margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:11px;color:#374151;">${i+1}. ${name}</span>
+                <span style="font-size:11px;font-weight:700;color:#10B981;">R$${(data.total/1000).toFixed(1)}k (${data.count}x)</span>
+              </div>
+              <div style="height:4px;background:#E2E8F0;border-radius:9999px;overflow:hidden;">
+                <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#0077FF,#00BBFF);border-radius:9999px;"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        ` : ''}
+      </div>
+
+      <!-- RUNNING FOOTER (via CSS @media print) -->
+      <div class="pdf-running-footer">
+        <div style="height:2px;background:linear-gradient(90deg,#0077FF,#00BBFF);width:100%;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 40px;background:#060B18;">
+          <span style="color:rgba(255,255,255,0.9);font-size:9px;font-weight:700;letter-spacing:0.15em;">DURAR Consultoria e Engenharia</span>
+          <span style="color:rgba(255,255,255,0.45);font-size:9px;">Relatório DURABEL · ${new Date().toLocaleDateString('pt-BR')}</span>
+        </div>
+      </div>
     </div>
   `;
   createPrintWindow(html);
