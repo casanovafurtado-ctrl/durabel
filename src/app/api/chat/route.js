@@ -72,7 +72,7 @@ export async function POST(req) {
     const email = session?.user?.email;
 
     // Lê o body com crmData incluído
-    const { messages, anthropicKey: clientKey, crmData } = await req.json();
+    const { messages, anthropicKey: clientKey, crmData, systemOverride } = await req.json();
 
     // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
     let anthropicKey = clientKey || null;
@@ -90,7 +90,17 @@ export async function POST(req) {
       });
     }
 
-    const client = new Anthropic({ apiKey: anthropicKey });
+    // Se vier systemOverride (ex: gerador de relatório), usa prompt simples sem tools
+    if (systemOverride) {
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2048,
+        system: systemOverride,
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+      });
+      const content = response.content.find(b => b.type === 'text')?.text || '';
+      return Response.json({ content });
+    }
 
     // Monta contexto com dados do CRM
     let crmContext = '';
