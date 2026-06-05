@@ -99,14 +99,15 @@ function createPrintWindow(html) {
           bottom: 0 !important;
           left: 0 !important;
           right: 0 !important;
+          width: 100% !important;
           z-index: 9999 !important;
           height: 18mm;
           background: #060B18;
           align-items: center;
           justify-content: space-between;
           padding: 0 12mm;
-          border-top: 2px solid transparent;
-          border-image: linear-gradient(90deg, #0077FF, #00BBFF) 1;
+          box-sizing: border-box !important;
+          border-top: 3px solid #0077FF;
         }
 
         .durar-footer-left {
@@ -153,17 +154,24 @@ function createPrintWindow(html) {
           font-size: 9px;
           color: rgba(255,255,255,0.4);
           margin-top: 2px;
+          counter-increment: page;
         }
         .durar-footer-page::before {
-          content: "Página " counter(page) " ";
+          content: "Página " counter(page) " de " attr(data-total);
         }
+
       }
     </style>
 
     <div class="pdf-topbar">
-      <span style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;font-family:Inter,sans-serif;">
-        DUR<span style="color:#00BBFF;">AR</span> — Visualização PDF
-      </span>
+      <div>
+        <span style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;font-family:Inter,sans-serif;">
+          DUR<span style="color:#00BBFF;">AR</span> — Visualização PDF
+        </span>
+        <div style="font-size:10px;color:rgba(255,255,255,0.35);font-family:Inter,sans-serif;margin-top:2px;">
+          💡 Ao imprimir: desative "Cabeçalhos e rodapés" nas opções
+        </div>
+      </div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn-print" onclick="window.print()">🖨️ Salvar PDF</button>
         <button onclick="document.getElementById('durabel-pdf-modal').remove()"
@@ -192,22 +200,43 @@ function createPrintWindow(html) {
 
   document.body.appendChild(modal);
 
-  // Calcula total de páginas antes de imprimir
+  // Adiciona suporte a pinch-zoom no preview
+  const pdfContent = modal.querySelector('.pdf-content');
+  if (pdfContent) {
+    pdfContent.style.touchAction = 'pan-y pinch-zoom';
+    const inner = modal.querySelector('.pdf-inner');
+    if (inner) {
+      inner.style.transformOrigin = 'top center';
+      let scale = 1;
+      let lastDist = 0;
+      pdfContent.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          lastDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        }
+      }, { passive: true });
+      pdfContent.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2) {
+          const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+          scale = Math.min(3, Math.max(0.5, scale * (dist / lastDist)));
+          inner.style.transform = `scale(${scale})`;
+          lastDist = dist;
+        }
+      }, { passive: true });
+    }
+  }
+
+  // Calcula total de páginas e configura botão de imprimir
   const printBtn = modal.querySelector('.btn-print');
   if (printBtn) {
     printBtn.onclick = () => {
-      // Estima número de páginas pela altura do conteúdo
       const inner = modal.querySelector('.pdf-inner');
-      const pageHeightPx = 297 * 3.7795; // A4 em px (96dpi)
-      const contentHeight = inner ? inner.scrollHeight : 0;
-      const totalPages = Math.max(1, Math.ceil(contentHeight / pageHeightPx));
+      const A4_HEIGHT_PX = 1122; // 297mm a 96dpi
+      const contentHeight = inner ? inner.scrollHeight : A4_HEIGHT_PX;
+      const totalPages = Math.max(1, Math.ceil(contentHeight / A4_HEIGHT_PX));
 
-      // Atualiza o elemento de número de página
       const pageEl = modal.querySelector('#durar-page-num');
       if (pageEl) {
-        // CSS counter mostra página atual, JS mostra o total
-        pageEl.textContent = `de ${totalPages}`;
-        pageEl.style.display = 'block';
+        pageEl.setAttribute('data-total', totalPages);
       }
 
       window.print();
@@ -349,7 +378,7 @@ export function exportClientPDF(client) {
         
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:#fff;">
+            <div style="font-family:'Arial Black',Arial,sans-serif;font-size:24px;font-weight:900;color:#fff;">
               DUR<span style="color:#00BBFF;">AR</span>
             </div>
             <div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.25em;margin-top:2px;">
@@ -421,10 +450,7 @@ export function exportClientPDF(client) {
       </div>
 
       <!-- FOOTER -->
-      <div style="padding:20px 50px;background:#F8FAFF;border-top:2px solid #E2E8F0;display:flex;justify-content:space-between;">
-        <div style="font-size:10px;color:#6B7280;">DURAR Consultoria e Engenharia</div>
-        <div style="font-size:10px;color:#6B7280;">Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
-      </div>
+
     </div>
   `;
   createPrintWindow(html);
@@ -460,7 +486,7 @@ export function exportFinancePDF(proposals) {
 
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;">
           <div>
-            <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:#fff;">
+            <div style="font-family:'Arial Black',Arial,sans-serif;font-size:24px;font-weight:900;color:#fff;">
               DUR<span style="color:#00BBFF;">AR</span>
             </div>
             <div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.25em;margin-top:2px;">
