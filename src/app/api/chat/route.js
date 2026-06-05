@@ -90,6 +90,8 @@ export async function POST(req) {
       });
     }
 
+    const client = new Anthropic({ apiKey: anthropicKey });
+
     // Se vier systemOverride (ex: gerador de relatório), usa prompt simples sem tools
     if (systemOverride) {
       const response = await client.messages.create({
