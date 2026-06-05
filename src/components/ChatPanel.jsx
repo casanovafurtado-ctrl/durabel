@@ -16,6 +16,36 @@ function cleanMarkdown(text) {
     .trim();
 }
 
+// Corrige variações do nome Durabel que o Speech Recognition inventa
+function fixDurabelName(text) {
+  const replaceAll = (str, search) => {
+    let result = ''; let last = 0;
+    const lower = str.toLowerCase();
+    const sl = search.toLowerCase();
+    let idx = lower.indexOf(sl);
+    while (idx !== -1) { result += str.slice(last, idx) + 'Durabel'; last = idx + search.length; idx = lower.indexOf(sl, last); }
+    return result + str.slice(last);
+  };
+  let t = text;
+  [
+    // Variações confirmadas pelo usuário
+    'du wrabel', 'du abel', 'du bel', 'du rabel',
+    // Outras variações fonéticas
+    'durabilidade','duravel','durável','durabél','dúravel',
+    'dorabél','dorabel','doravel','dorable','durable',
+    'dura bel','dura bell','dura bil','dura vel',
+    'du rabél','do abel','do bel','do rabel',
+    'drawable','draw abel','draw bell',
+    'durabel',
+  ].forEach(w => { t = replaceAll(t, w); });
+
+  // Abel sozinho no início ou meio da frase
+  t = t.replace(/\bAbel\b/g, 'Durabel');
+  t = t.replace(/\babel\b/gi, 'Durabel');
+
+  return t;
+}
+
 const QUICK_ACTIONS = [
   '📅 O que tenho hoje?',
   '✅ Minhas tarefas pendentes',
@@ -100,7 +130,7 @@ export default function ChatPanel() {
 
     const rec = new SR();
     rec.lang = 'pt-BR';
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = false;
     rec.maxAlternatives = 1;
 
@@ -126,7 +156,6 @@ export default function ChatPanel() {
 
     rec.onend = () => {
       recognitionRef.current = null;
-      // Reinicia automaticamente só se ainda ativo
       if (listeningRef.current) setTimeout(startMic, 150);
     };
 
