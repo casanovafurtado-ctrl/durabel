@@ -16,33 +16,38 @@ function cleanMarkdown(text) {
     .trim();
 }
 
-// Corrige variações do nome DURABEL que o Speech Recognition inventa
+// Corrige variações do nome Durabel que o Speech Recognition inventa
 function fixDurabelName(text) {
-  const variations = [
-    // Variações fonéticas em português
-    /(du\s*ra\s*bel|du\s*ra\s*bell|dura\s*bel|dura\s*bell)/gi,
-    /(duravel|dúravel|durávél|duraável)/gi,
-    /(du\s*rabel|du\s*rabél)/gi,
-    /(do\s*rabel|dorabél|dorabél)/gi,
-    /(durabél|dúrabél)/gi,
-    /(do\s*ravel|doravel)/gi,
-    // O clássico Abel e variações
-    /(d[uo]\s*abel|do\s*abel|du\s*abel)/gi,
-    /(d'abel|d'\s*abel)/gi,
-    /(abel|ável)/gi, // só substitui Abel sozinho se vier após "a" ou "du"
-    // Outras tentativas do iOS
-    /(dura\s*bill|durable|durável|durabel[ls])/gi,
-    /(your\s*abel|do\s*rabble|dorable)/gi,
-    /(drawable|drawable)/gi,
-  ];
-  
+  const replaceAll = (str, search, replace) => {
+    const lower = str.toLowerCase();
+    const searchLower = search.toLowerCase();
+    let result = '';
+    let last = 0;
+    let idx = lower.indexOf(searchLower);
+    while (idx !== -1) {
+      result += str.slice(last, idx) + replace;
+      last = idx + search.length;
+      idx = lower.indexOf(searchLower, last);
+    }
+    return result + str.slice(last);
+  };
+
   let fixed = text;
-  // Primeiro trata os compostos (du abel, do abel)
-  fixed = fixed.replace(/(d[uo])\s+(abel|ável|rabél|rabel)/gi, 'Durabel');
-  // Depois as variações diretas
-  variations.forEach(pattern => {
-    fixed = fixed.replace(pattern, 'Durabel');
-  });
+  const corrections = [
+    'durabilidade', 'duravel', 'durável', 'durabél', 'dúravel',
+    'dorabél', 'dorabel', 'doravel', 'dorable', 'durable',
+    'du abel', 'do abel', 'du rabél', 'du rabel',
+    'dura bel', 'dura bell', 'dura bil', 'dura vel',
+    'drawable', 'drawbell', 'draw abel',
+  ];
+  corrections.forEach(w => { fixed = replaceAll(fixed, w, 'Durabel'); });
+
+  // Abel sozinho
+  fixed = replaceAll(fixed, ' Abel ', ' Durabel ');
+  fixed = replaceAll(fixed, ' abel ', ' Durabel ');
+  if (fixed.toLowerCase().startsWith('abel ')) fixed = 'Durabel ' + fixed.slice(5);
+  if (fixed.toLowerCase() === 'abel') fixed = 'Durabel';
+
   return fixed;
 }
 
@@ -111,40 +116,13 @@ export default function ChatPanel() {
     listeningRef.current = listening;
   }, [listening]);
 
-  // Sons de ativação/desativação do microfone
-  const playMicSound = (type) => {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      if (type === 'on') {
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
-      } else {
-        osc.frequency.setValueAtTime(1100, ctx.currentTime);
-        osc.frequency.setValueAtTime(660, ctx.currentTime + 0.08);
-      }
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.2);
-    } catch {}
-  };
-
-  // Para o microfone — usa stop() que é mais gracioso no iOS
+  // Para o microfone — função dedicada, sempre funciona
   const stopMic = () => {
-    if (listeningRef.current) playMicSound('off');
+    try { recognitionRef.current?.abort(); } catch {}
+    try { recognitionRef.current?.stop(); } catch {}
+    recognitionRef.current = null;
     listeningRef.current = false;
     setListening(false);
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch {}
-      setTimeout(() => {
-        try { recognitionRef.current?.abort(); } catch {}
-        recognitionRef.current = null;
-      }, 300);
-    }
   };
 
   // Inicia o microfone
@@ -154,57 +132,44 @@ export default function ChatPanel() {
 
     const recognition = new SR();
     recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = false; // false = mais estável no iOS
+    recognition.continuous = true;  // Fica ativo até ser parado — assim Send pode parar
+    recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
     recognition.onresult = (event) => {
       let final = '';
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) final += event.results[i][0].transcript + ' ';
       }
       if (final.trim()) {
-        const corrected = fixDurabelName(final.trim());
-        setInput(prev => (prev ? prev.trim() + ' ' : '') + corrected);
+        setInput(prev => (prev ? prev.trim() + ' ' : '') + fixDurabelName(final.trim()));
       }
     };
 
     recognition.onerror = (e) => {
-      if (e.error !== 'aborted' && e.error !== 'no-speech') {
-        console.warn('Mic error:', e.error);
-      }
-      recognitionRef.current = null;
-      listeningRef.current = false;
-      setListening(false);
+      if (e.error !== 'aborted') console.warn('Mic error:', e.error);
+      stopMic();
     };
 
     recognition.onend = () => {
-      recognitionRef.current = null;
-      listeningRef.current = false;
-      setListening(false);
+      // Só atualiza estado se ainda está "escutando" — evita conflito com stopMic
+      if (listeningRef.current) stopMic();
     };
 
     recognitionRef.current = recognition;
     listeningRef.current = true;
     setListening(true);
-    playMicSound('on');
 
     try { recognition.start(); }
-    catch (e) {
-      console.warn('Mic start error:', e);
-      recognitionRef.current = null;
-      listeningRef.current = false;
-      setListening(false);
-    }
+    catch { stopMic(); }
   };
 
   const toggleListening = () => {
     if (listeningRef.current) {
-      // Para o mic — iOS precisa de tempo para liberar
       stopMic();
     } else {
-      // Inicia novo — delay de 500ms garante que iOS liberou o hardware
-      setTimeout(startMic, 500);
+      stopMic(); // Garante limpeza antes
+      setTimeout(startMic, 200); // Delay para iOS liberar mic
     }
   };
 
@@ -214,6 +179,10 @@ export default function ChatPanel() {
 
     setInput('');
     setLoading(true);
+    // Reset textarea height
+    if (inputRef.current) {
+      inputRef.current.style.height = 'auto';
+    }
 
     const newMessages = [...messages, { role: 'user', content }];
     setMessages(newMessages);
@@ -225,19 +194,10 @@ export default function ChatPanel() {
       const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       const anthropicKey = localSettings.anthropic_key || '';
 
-      // Inclui dados do CRM e Resultados para a IA ter acesso
-      const crmData = (() => {
-        try {
-          const clients = JSON.parse(localStorage.getItem('durabel_clients') || '[]');
-          const proposals = JSON.parse(localStorage.getItem('durabel_proposals') || '[]');
-          return { clients, proposals };
-        } catch { return { clients: [], proposals: [] }; }
-      })();
-
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, anthropicKey, crmData }),
+        body: JSON.stringify({ messages: newMessages, anthropicKey }),
       });
       const data = await res.json();
 
@@ -439,12 +399,7 @@ export default function ChatPanel() {
 
           {/* Send button */}
           <button
-            onClick={() => {
-              // Para o mic SEMPRE — mesmo se já parou, garante liberação no iOS
-              stopMic();
-              // Pequeno delay para iOS processar o stop antes de enviar
-              setTimeout(() => sendMessage(), 100);
-            }}
+            onClick={() => { stopMic(); sendMessage(); }}
             disabled={!input.trim() || loading}
             className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
             style={{
