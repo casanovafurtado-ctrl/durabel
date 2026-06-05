@@ -69,24 +69,6 @@ export default function SplashScreen({ onDone }) {
         <div style={{ position: 'absolute', bottom: -60, left: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(0,187,255,0.05)' }} />
 
         {/* Logo */}
-        <div style={{
-          width: 96, height: 96, borderRadius: 24, marginBottom: 24,
-          background: 'linear-gradient(135deg, #0A1528, #0D1A35)',
-          border: '1.5px solid rgba(0,119,255,0.3)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          position: 'relative', zIndex: 1,
-          animation: 'logoIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both',
-        }}>
-          <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
-            <rect x="8" y="6" width="10" height="40" fill="#B5D4F4" rx="2"/>
-            <path d="M18 6 Q44 6 44 26 Q44 46 18 46" stroke="#0077FF" strokeWidth="10" fill="none" strokeLinecap="round"/>
-            <rect x="17" y="18" width="16" height="11" rx="3" fill="#00BBFF" opacity="0.9"/>
-            <circle cx="23" cy="23.5" r="1.5" fill="white"/>
-            <circle cx="27" cy="23.5" r="1.5" fill="white"/>
-            <circle cx="31" cy="23.5" r="1.5" fill="white"/>
-            <path d="M21 29 L19 33 L25 29" fill="#00BBFF" opacity="0.9"/>
-          </svg>
-        </div>
 
         <div style={{
           fontFamily: "'Syne', sans-serif", fontSize: 28, fontWeight: 700,
