@@ -70,7 +70,8 @@ function LoadingScreen() {
     return () => clearInterval(t);
   }, []);
   return (
-    <div className="flex flex-col items-center justify-center flex-1 px-6 pb-16">
+    <div className="flex flex-col items-center px-6 flex-1"
+      style={{ paddingTop: '10%', paddingBottom: 'calc(env(safe-area-inset-bottom) + 48px)' }}>
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
         style={{ background: 'linear-gradient(135deg,#0055CC,#0077FF)', boxShadow: '0 0 30px rgba(0,119,255,0.4)' }}>
         <Sparkles size={28} style={{ color: 'white' }} />
