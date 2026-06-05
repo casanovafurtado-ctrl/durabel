@@ -16,6 +16,36 @@ function cleanMarkdown(text) {
     .trim();
 }
 
+// Corrige variações do nome DURABEL que o Speech Recognition inventa
+function fixDurabelName(text) {
+  const variations = [
+    // Variações fonéticas em português
+    /(du\s*ra\s*bel|du\s*ra\s*bell|dura\s*bel|dura\s*bell)/gi,
+    /(duravel|dúravel|durávél|duraável)/gi,
+    /(du\s*rabel|du\s*rabél)/gi,
+    /(do\s*rabel|dorabél|dorabél)/gi,
+    /(durabél|dúrabél)/gi,
+    /(do\s*ravel|doravel)/gi,
+    // O clássico Abel e variações
+    /(d[uo]\s*abel|do\s*abel|du\s*abel)/gi,
+    /(d'abel|d'\s*abel)/gi,
+    /(abel|ável)/gi, // só substitui Abel sozinho se vier após "a" ou "du"
+    // Outras tentativas do iOS
+    /(dura\s*bill|durable|durável|durabel[ls])/gi,
+    /(your\s*abel|do\s*rabble|dorable)/gi,
+    /(drawable|drawable)/gi,
+  ];
+  
+  let fixed = text;
+  // Primeiro trata os compostos (du abel, do abel)
+  fixed = fixed.replace(/(d[uo])\s+(abel|ável|rabél|rabel)/gi, 'DURABEL');
+  // Depois as variações diretas
+  variations.forEach(pattern => {
+    fixed = fixed.replace(pattern, 'DURABEL');
+  });
+  return fixed;
+}
+
 const QUICK_ACTIONS = [
   '📅 O que tenho hoje?',
   '✅ Minhas tarefas pendentes',
@@ -81,13 +111,18 @@ export default function ChatPanel() {
     listeningRef.current = listening;
   }, [listening]);
 
-  // Para o microfone — função dedicada, sempre funciona
+  // Para o microfone — usa stop() que é mais gracioso no iOS
   const stopMic = () => {
-    try { recognitionRef.current?.abort(); } catch {}
-    try { recognitionRef.current?.stop(); } catch {}
-    recognitionRef.current = null;
     listeningRef.current = false;
     setListening(false);
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      // Abort como fallback após 300ms se stop() não disparar onend
+      setTimeout(() => {
+        try { recognitionRef.current?.abort(); } catch {}
+        recognitionRef.current = null;
+      }, 300);
+    }
   };
 
   // Inicia o microfone
@@ -98,7 +133,7 @@ export default function ChatPanel() {
     const recognition = new SR();
     recognition.lang = 'pt-BR';
     recognition.continuous = false;
-    recognition.interimResults = true;
+    recognition.interimResults = false; // false = mais estável no iOS
     recognition.maxAlternatives = 1;
 
     recognition.onresult = (event) => {
@@ -106,17 +141,25 @@ export default function ChatPanel() {
       for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) final += event.results[i][0].transcript + ' ';
       }
-      if (final.trim()) setInput(prev => (prev ? prev.trim() + ' ' : '') + final.trim());
+      if (final.trim()) {
+        const corrected = fixDurabelName(final.trim());
+        setInput(prev => (prev ? prev.trim() + ' ' : '') + corrected);
+      }
     };
 
     recognition.onerror = (e) => {
-      if (e.error !== 'aborted') console.warn('Mic error:', e.error);
-      stopMic();
+      if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        console.warn('Mic error:', e.error);
+      }
+      recognitionRef.current = null;
+      listeningRef.current = false;
+      setListening(false);
     };
 
     recognition.onend = () => {
-      // Só atualiza estado se ainda está "escutando" — evita conflito com stopMic
-      if (listeningRef.current) stopMic();
+      recognitionRef.current = null;
+      listeningRef.current = false;
+      setListening(false);
     };
 
     recognitionRef.current = recognition;
@@ -124,15 +167,21 @@ export default function ChatPanel() {
     setListening(true);
 
     try { recognition.start(); }
-    catch { stopMic(); }
+    catch (e) {
+      console.warn('Mic start error:', e);
+      recognitionRef.current = null;
+      listeningRef.current = false;
+      setListening(false);
+    }
   };
 
   const toggleListening = () => {
     if (listeningRef.current) {
+      // Para o mic — iOS precisa de tempo para liberar
       stopMic();
     } else {
-      stopMic(); // Garante limpeza antes
-      setTimeout(startMic, 200); // Delay para iOS liberar mic
+      // Inicia novo — delay de 500ms garante que iOS liberou o hardware
+      setTimeout(startMic, 500);
     }
   };
 
