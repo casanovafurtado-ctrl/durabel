@@ -39,9 +39,11 @@ function fixDurabelName(text) {
     'durabel',
   ].forEach(w => { t = replaceAll(t, w); });
 
-  // Abel sozinho no início ou meio da frase
+  // Abel sozinho — só como palavra completa, não dentro de outras
   t = t.replace(/\bAbel\b/g, 'Durabel');
-  t = t.replace(/\babel\b/gi, 'Durabel');
+  // "bel" sozinho também pode aparecer
+  t = t.replace(/\bdu bel\b/gi, 'Durabel');
+  if (t.toLowerCase().trim() === 'bel') t = 'Durabel';
 
   return t;
 }
