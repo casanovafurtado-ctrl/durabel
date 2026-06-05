@@ -376,7 +376,7 @@ function ClientModal({ client, onClose, onSave }) {
 }
 
 // ─── Card de Cliente ───────────────────────────────────
-function ClientCard({ client, onEdit, onExport, onWhatsApp }) {
+function ClientCard({ client, onEdit, onExport, onWhatsApp, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[client.status] || STATUS_CONFIG.prospecto;
   const items = client.serviceItems || [];
@@ -492,6 +492,11 @@ function ClientCard({ client, onEdit, onExport, onWhatsApp }) {
                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter' }}>
                 ✏️ Editar
               </button>
+              <button onClick={() => { if (confirm(`Excluir "${client.name}"?`)) onDelete(client.id); }}
+                className="py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontFamily: 'Inter' }}>
+                <Trash2 size={12} />
+              </button>
             </div>
           </div>
         </div>
@@ -515,6 +520,10 @@ export default function CRMPanel() {
   const save = (updated) => {
     setClients(updated);
     try { localStorage.setItem('durabel_clients', JSON.stringify(updated)); } catch {}
+  };
+
+  const handleDelete = (id) => {
+    save(clients.filter(c => c.id !== id));
   };
 
   const handleSave = (form) => {
@@ -597,7 +606,8 @@ export default function CRMPanel() {
             <ClientCard key={c.id} client={c}
               onEdit={c => { setEditing(c); setShowModal(true); }}
               onExport={exportClientPDF}
-              onWhatsApp={handleWhatsApp} />
+              onWhatsApp={handleWhatsApp}
+              onDelete={handleDelete} />
           ))
         )}
       </div>
