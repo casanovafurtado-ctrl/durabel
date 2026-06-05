@@ -153,10 +153,19 @@ export default function ChatPanel() {
       const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       const anthropicKey = localSettings.anthropic_key || '';
 
+      // Inclui dados do CRM e Resultados para a IA ter acesso
+      const crmData = (() => {
+        try {
+          const clients = JSON.parse(localStorage.getItem('durabel_clients') || '[]');
+          const proposals = JSON.parse(localStorage.getItem('durabel_proposals') || '[]');
+          return { clients, proposals };
+        } catch { return { clients: [], proposals: [] }; }
+      })();
+
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, anthropicKey }),
+        body: JSON.stringify({ messages: newMessages, anthropicKey, crmData }),
       });
       const data = await res.json();
 
