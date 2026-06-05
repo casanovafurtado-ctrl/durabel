@@ -262,6 +262,8 @@ export default function CalendarPanel() {
   };
 
   const deleteEvent = async (eventId) => {
+    const ev = events.find(e => e.id === eventId);
+    if (!confirm(`Excluir "${ev?.title || 'este evento'}"?`)) return;
     try {
       await fetch(`/api/calendar?eventId=${eventId}`, { method: 'DELETE' });
       setEvents(prev => prev.filter(e => e.id !== eventId));
