@@ -207,10 +207,20 @@ export default function ChatPanel() {
         if (voiceEnabled) {
           try {
             setSpeaking(true);
+            // Prepara texto para voz — limpa e limita para evitar falhas
+            const voiceText = data.content
+              .replace(/[*#`_~]/g, '')           // remove markdown
+              .replace(/https?:\/\/\S+/g, '')    // remove URLs
+              .replace(/\s+/g, ' ')              // normaliza espaços
+              .trim()
+              .slice(0, 300);                    // máximo 300 chars
+
+            if (!voiceText) { setSpeaking(false); return; }
+
             const voiceRes = await fetch('/api/voice', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: data.content.slice(0, 500) }),
+              body: JSON.stringify({ text: voiceText }),
             });
             if (voiceRes.ok) {
               // Para áudio anterior se estiver tocando
