@@ -43,6 +43,8 @@ function createPrintWindow(html) {
     font-family: 'Inter', sans-serif;
   `;
 
+  const today = new Date().toLocaleDateString('pt-BR');
+
   modal.innerHTML = `
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -55,20 +57,13 @@ function createPrintWindow(html) {
       }
       #durabel-pdf-modal .pdf-content {
         flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
-        background: #f5f5f5;
-        display: flex; justify-content: center; padding: 20px 16px;
+        background: #f0f0f0;
+        display: flex; justify-content: center; padding: 20px 16px 40px;
       }
       #durabel-pdf-modal .pdf-inner {
         background: white; width: 100%; max-width: 210mm;
         box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         height: auto; overflow: visible;
-      }
-      #durabel-pdf-modal .btn-back {
-        background: rgba(255,255,255,0.1); color: white;
-        border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px;
-        border-radius: 10px; font-size: 14px; font-weight: 600;
-        cursor: pointer; display: flex; align-items: center; gap: 6px;
-        font-family: 'Inter', sans-serif;
       }
       #durabel-pdf-modal .btn-print {
         background: linear-gradient(135deg, #0055CC, #0099FF);
@@ -77,57 +72,147 @@ function createPrintWindow(html) {
         cursor: pointer; box-shadow: 0 2px 10px rgba(0,119,255,0.4);
         font-family: 'Inter', sans-serif;
       }
+
+      /* ── RODAPÉ FIXO EM TODAS AS PÁGINAS ── */
+      .durar-footer {
+        display: none; /* só aparece no print */
+      }
+
       @media print {
         #durabel-pdf-modal .pdf-topbar { display: none !important; }
-        #durabel-pdf-modal {
-          position: static !important;
-          height: auto !important;
-          overflow: visible !important;
-        }
-        #durabel-pdf-modal .pdf-content {
-          padding: 0 !important;
-          overflow: visible !important;
-          height: auto !important;
-          background: white !important;
-        }
-        #durabel-pdf-modal .pdf-inner {
-          box-shadow: none !important;
-          max-width: 100% !important;
-          overflow: visible !important;
-          height: auto !important;
-        }
+        #durabel-pdf-modal { position: static !important; height: auto !important; overflow: visible !important; }
+        #durabel-pdf-modal .pdf-content { padding: 0 !important; overflow: visible !important; height: auto !important; background: white !important; }
+        #durabel-pdf-modal .pdf-inner { box-shadow: none !important; max-width: 100% !important; overflow: visible !important; height: auto !important; }
         body > *:not(#durabel-pdf-modal) { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+        /* Remove header/footer do browser */
         @page {
-          margin: 0 !important;
           size: A4;
+          margin: 0mm 0mm 18mm 0mm;
         }
-        .pdf-running-footer {
-          display: block !important;
+
+        /* Rodapé fixo em todas as páginas */
+        .durar-footer {
+          display: flex !important;
           position: fixed !important;
           bottom: 0 !important;
           left: 0 !important;
           right: 0 !important;
+          z-index: 9999 !important;
+          height: 18mm;
+          background: #060B18;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 12mm;
+          border-top: 2px solid transparent;
+          border-image: linear-gradient(90deg, #0077FF, #00BBFF) 1;
         }
-        .pdf-last-footer { display: none !important; }
+
+        .durar-footer-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .durar-footer-logo {
+          font-family: 'Arial Black', Arial, sans-serif;
+          font-size: 13px;
+          font-weight: 900;
+          color: white;
+          letter-spacing: 0.05em;
+        }
+
+        .durar-footer-logo span { color: #00BBFF; }
+
+        .durar-footer-sep {
+          width: 1px; height: 16px;
+          background: rgba(255,255,255,0.2);
+          margin: 0 8px;
+        }
+
+        .durar-footer-text {
+          font-family: Arial, sans-serif;
+          font-size: 9px;
+          color: rgba(255,255,255,0.5);
+          letter-spacing: 0.05em;
+        }
+
+        .durar-footer-right {
+          text-align: right;
+        }
+
+        .durar-footer-date {
+          font-family: Arial, sans-serif;
+          font-size: 9px;
+          color: rgba(255,255,255,0.4);
+        }
+
+        .durar-footer-page {
+          font-family: Arial, sans-serif;
+          font-size: 9px;
+          color: rgba(255,255,255,0.4);
+          margin-top: 2px;
+        }
+        .durar-footer-page::before {
+          content: "Página " counter(page) " ";
+        }
       }
     </style>
+
     <div class="pdf-topbar">
-      <span style="color:rgba(255,255,255,0.6);font-size:13px;font-weight:600;">DURAR — Visualização PDF</span>
+      <span style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;font-family:Inter,sans-serif;">
+        DUR<span style="color:#00BBFF;">AR</span> — Visualização PDF
+      </span>
       <div style="display:flex;gap:8px;align-items:center;">
         <button class="btn-print" onclick="window.print()">🖨️ Salvar PDF</button>
         <button onclick="document.getElementById('durabel-pdf-modal').remove()"
-          style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;width:34px;height:34px;border-radius:10px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+          style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;width:34px;height:34px;border-radius:10px;font-size:18px;cursor:pointer;">
           ✕
         </button>
       </div>
     </div>
+
     <div class="pdf-content">
       <div class="pdf-inner">${html}</div>
+    </div>
+
+    <!-- Rodapé fixo que aparece em todas as páginas no PDF -->
+    <div class="durar-footer">
+      <div class="durar-footer-left">
+        <div class="durar-footer-logo">DUR<span>AR</span></div>
+        <div class="durar-footer-text">CONSULTORIA E ENGENHARIA &nbsp;·&nbsp; Gerado por Durabel IA Secretária</div>
+      </div>
+      <div class="durar-footer-right">
+        <div class="durar-footer-date">${today}</div>
+        <div class="durar-footer-page" id="durar-page-num"></div>
+      </div>
     </div>
   `;
 
   document.body.appendChild(modal);
+
+  // Calcula total de páginas antes de imprimir
+  const printBtn = modal.querySelector('.btn-print');
+  if (printBtn) {
+    printBtn.onclick = () => {
+      // Estima número de páginas pela altura do conteúdo
+      const inner = modal.querySelector('.pdf-inner');
+      const pageHeightPx = 297 * 3.7795; // A4 em px (96dpi)
+      const contentHeight = inner ? inner.scrollHeight : 0;
+      const totalPages = Math.max(1, Math.ceil(contentHeight / pageHeightPx));
+
+      // Atualiza o elemento de número de página
+      const pageEl = modal.querySelector('#durar-page-num');
+      if (pageEl) {
+        // CSS counter mostra página atual, JS mostra o total
+        pageEl.textContent = `de ${totalPages}`;
+        pageEl.style.display = 'block';
+      }
+
+      window.print();
+    };
+  }
 }
 
 // ─────────────────────────────────────────────────────────
