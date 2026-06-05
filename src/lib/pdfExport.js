@@ -30,160 +30,221 @@ function injectPrintStyles() {
 }
 
 function createPrintWindow(html) {
-  ['durabel-pdf-modal','durabel-print-footer'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.remove();
-  });
+  const existing = document.getElementById('durabel-pdf-modal');
+  if (existing) existing.remove();
 
   const today = new Date().toLocaleDateString('pt-BR');
 
-  // ── Footer separado no body para ser full-width no print ──
-  const footer = document.createElement('div');
-  footer.id = 'durabel-print-footer';
-  footer.innerHTML = `<style>
-    #durabel-print-footer { display: none; }
-    @media print {
-      #durabel-print-footer {
-        display: flex !important;
-        position: fixed !important;
-        bottom: 0 !important; left: 0 !important; right: 0 !important;
-        width: 100% !important; height: 16mm !important;
-        background: #060B18 !important;
-        border-top: 3px solid #0077FF !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        padding: 0 10mm !important;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-        box-sizing: border-box !important;
-      }
-      .drf-logo { font-family: Arial Black, sans-serif; font-size: 12px; font-weight: 900; color: #fff !important; }
-      .drf-logo b { color: #00BBFF !important; font-style: normal; }
-      .drf-sub { font-family: Arial, sans-serif; font-size: 7.5px; color: rgba(255,255,255,0.45) !important; margin-top: 2px; }
-      .drf-right { text-align: right; font-family: Arial, sans-serif; font-size: 8px; color: rgba(255,255,255,0.5) !important; }
-    }
-  </style>
-  <div style="display:flex;align-items:center;gap:6px;">
-    <div class="drf-logo">DUR<b>AR</b></div>
-    <div class="drf-sub">CONSULTORIA E ENGENHARIA &nbsp;·&nbsp; Gerado por Durabel IA Secretária</div>
-  </div>
-  <div class="drf-right">
-    <div>${today}</div>
-    <div id="drf-pages">Página 1 de 1</div>
-  </div>`;
-  document.body.appendChild(footer);
-
-  // ── Modal de visualização ──
   const modal = document.createElement('div');
   modal.id = 'durabel-pdf-modal';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;background:#111;';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;background:#111827;';
+
+  // Rodapé dentro do HTML — confiável em todos os browsers
+  const footerHtml = `
+    <div style="
+      background:#060B18;border-top:3px solid #0077FF;
+      padding:6mm 10mm;margin-top:16mm;
+      display:flex;justify-content:space-between;align-items:center;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;
+    ">
+      <div>
+        <div style="font-family:Arial Black,sans-serif;font-size:13px;font-weight:900;color:#fff;letter-spacing:0.05em;">
+          DUR<span style="color:#00BBFF;">AR</span>
+        </div>
+        <div style="font-family:Arial,sans-serif;font-size:8px;color:rgba(255,255,255,0.5);margin-top:2px;">
+          CONSULTORIA E ENGENHARIA &nbsp;·&nbsp; Gerado por Durabel IA Secretária
+        </div>
+      </div>
+      <div style="text-align:right;font-family:Arial,sans-serif;font-size:8px;color:rgba(255,255,255,0.5);">
+        <div>${today}</div>
+        <div id="pdf-page-info">Página 1 de 1</div>
+      </div>
+    </div>
+    <!-- Barra extra para cobrir o rodapé do browser iOS (URL + data) -->
+    <div style="
+      background:#060B18;height:18mm;margin-top:-1px;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;
+    "></div>`;
 
   modal.innerHTML = `
+    <!-- Carrega jsPDF + html2canvas para download sem diálogo de impressão -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
     <style>
       #durabel-pdf-modal * { box-sizing: border-box; }
       @media print {
-        body > *:not(#durabel-pdf-modal):not(#durabel-print-footer) { display: none !important; }
-        #durabel-pdf-modal { position: static !important; }
+        body > *:not(#durabel-pdf-modal) { display: none !important; }
+        #durabel-pdf-modal { position: static !important; background: white !important; }
         #durabel-pdf-modal .pv-bar { display: none !important; }
         #durabel-pdf-modal .pv-scroll {
-          overflow: visible !important; background: white !important;
-          padding: 0 !important; display: block !important;
+          overflow: visible !important; padding: 0 !important;
+          background: white !important; display: block !important;
           transform: none !important;
         }
         #durabel-pdf-modal .pv-doc {
-          width: 100% !important; transform: none !important;
-          transform-origin: unset !important; box-shadow: none !important;
+          transform: none !important; box-shadow: none !important;
+          width: 100% !important; min-width: unset !important;
+          position: static !important; top: auto !important; left: auto !important;
         }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        @page { size: A4; margin: 8mm 8mm 20mm 8mm; }
+        @page { size: A4; margin: 8mm 8mm 8mm 8mm; }
       }
     </style>
 
     <div class="pv-bar" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#060B18;border-bottom:2px solid #0077FF;flex-shrink:0;">
       <div>
-        <div style="font-family:Arial Black,sans-serif;font-size:15px;font-weight:900;color:#fff;letter-spacing:0.04em;">
+        <div style="font-family:Arial Black,sans-serif;font-size:14px;font-weight:900;color:#fff;letter-spacing:0.04em;">
           DUR<span style="color:#00BBFF;">AR</span>
-          <span style="font-family:Inter,sans-serif;font-size:11px;font-weight:400;color:rgba(255,255,255,0.4);margin-left:6px;">· Visualização</span>
+          <span style="font-family:Inter,sans-serif;font-size:11px;font-weight:400;color:rgba(255,255,255,0.35);margin-left:6px;">· PDF</span>
         </div>
-        <div style="font-size:9.5px;color:rgba(255,255,255,0.3);font-family:Inter,sans-serif;margin-top:3px;">
-          🤏 Dois dedos para zoom · iOS: salve como PDF pelo menu compartilhar
+        <div style="font-size:9px;color:rgba(255,255,255,0.3);font-family:Inter,sans-serif;margin-top:2px;">
+          🤏 Dois dedos = zoom &nbsp;·&nbsp; Um dedo = mover
         </div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button id="pv-print-btn" style="background:linear-gradient(135deg,#0055CC,#0099FF);color:#fff;border:none;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
-          🖨️ Salvar PDF
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button id="pv-download" style="background:linear-gradient(135deg,#059669,#10B981);color:#fff;border:none;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+          ⬇️ Baixar PDF
         </button>
-        <button id="pv-close-btn" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;">✕</button>
+        <button id="pv-print" style="background:linear-gradient(135deg,#0055CC,#0099FF);color:#fff;border:none;padding:9px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+          🖨️ Imprimir
+        </button>
+        <button id="pv-close" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;">✕</button>
       </div>
     </div>
 
-    <div class="pv-scroll" id="pv-scroll" style="flex:1;overflow:auto;background:#1e1e2e;display:flex;justify-content:center;align-items:flex-start;padding:20px;touch-action:none;">
-      <div class="pv-doc" id="pv-doc" style="background:white;width:21cm;transform-origin:top center;box-shadow:0 8px 40px rgba(0,0,0,0.6);border-radius:2px;transition:transform 0.05s;">
+    <div class="pv-scroll" id="pv-scroll" style="flex:1;overflow:hidden;background:#1e1e2e;display:flex;justify-content:center;align-items:flex-start;touch-action:none;position:relative;">
+      <div class="pv-doc" id="pv-doc" style="background:white;width:794px;min-width:794px;transform-origin:top left;box-shadow:0 8px 40px rgba(0,0,0,0.6);position:absolute;top:0;left:0;">
         ${html}
+        ${footerHtml}
       </div>
     </div>
   `;
 
   document.body.appendChild(modal);
 
-  // ── Escala inicial para caber na tela ──
   const scroll = document.getElementById('pv-scroll');
-  const doc = document.getElementById('pv-doc');
+  const doc   = document.getElementById('pv-doc');
 
-  const fitScale = () => {
-    const sw = scroll.clientWidth - 40;
-    const dw = doc.scrollWidth || 794; // 21cm ≈ 794px
-    return Math.min(1, sw / dw);
+  // Escala inicial para caber na tela
+  const sw = scroll.clientWidth || window.innerWidth;
+  let scale = Math.min(1, (sw - 16) / 794);
+  let tx = Math.max(0, (sw - 794 * scale) / 2);
+  let ty = 20;
+
+  const apply = () => {
+    doc.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
   };
+  apply();
 
-  let scale = fitScale();
-  doc.style.transform = `scale(${scale})`;
-  doc.style.transformOrigin = 'top center';
-  // Ajusta altura do wrapper para não deixar espaço em branco
-  doc.style.marginBottom = `${-(doc.scrollHeight * (1 - scale))}px`;
-
-  // ── Pinch-to-zoom ──
-  let startDist = 0;
-  let startScale = scale;
+  // Touch: pinch zoom + 1 dedo pan
+  let singleStart = null, startScale = scale, startTx = tx, startTy = ty;
+  let startDist = 1, startMidX = 0, startMidY = 0;
 
   scroll.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      startDist = Math.hypot(
-        e.touches[0].pageX - e.touches[1].pageX,
-        e.touches[0].pageY - e.touches[1].pageY
-      );
-      startScale = scale;
-      e.preventDefault();
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      singleStart = { x: e.touches[0].clientX - tx, y: e.touches[0].clientY - ty };
+    } else if (e.touches.length === 2) {
+      singleStart = null;
+      const [t0, t1] = [e.touches[0], e.touches[1]];
+      startDist  = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+      startMidX  = (t0.clientX + t1.clientX) / 2;
+      startMidY  = (t0.clientY + t1.clientY) / 2;
+      startScale = scale; startTx = tx; startTy = ty;
     }
   }, { passive: false });
 
   scroll.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2) {
-      e.preventDefault();
-      const dist = Math.hypot(
-        e.touches[0].pageX - e.touches[1].pageX,
-        e.touches[0].pageY - e.touches[1].pageY
-      );
-      scale = Math.min(2.5, Math.max(0.2, startScale * (dist / startDist)));
-      doc.style.transform = `scale(${scale})`;
-      doc.style.marginBottom = `${-(doc.scrollHeight * (1 - scale))}px`;
+    e.preventDefault();
+    if (e.touches.length === 1 && singleStart) {
+      tx = e.touches[0].clientX - singleStart.x;
+      ty = e.touches[0].clientY - singleStart.y;
+      apply();
+    } else if (e.touches.length === 2) {
+      const [t0, t1] = [e.touches[0], e.touches[1]];
+      const dist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+      const midX = (t0.clientX + t1.clientX) / 2;
+      const midY = (t0.clientY + t1.clientY) / 2;
+      scale = Math.min(3, Math.max(0.15, startScale * (dist / startDist)));
+      tx    = startTx + (midX - startMidX);
+      ty    = startTy + (midY - startMidY);
+      apply();
     }
   }, { passive: false });
 
-  // ── Botão imprimir ──
-  document.getElementById('pv-print-btn').onclick = () => {
+  scroll.addEventListener('touchend', () => { singleStart = null; }, { passive: true });
+
+  // ── Botão IMPRIMIR ──
+  document.getElementById('pv-print').onclick = () => {
     const A4H = 1122;
-    const total = Math.max(1, Math.ceil((doc.scrollHeight || A4H) / A4H));
-    const pEl = document.getElementById('drf-pages');
+    const total = Math.max(1, Math.ceil(doc.scrollHeight / A4H));
+    const pEl = document.getElementById('pdf-page-info');
     if (pEl) pEl.textContent = `Página 1 de ${total}`;
     window.print();
   };
 
-  // ── Botão fechar ──
-  document.getElementById('pv-close-btn').onclick = () => {
-    document.getElementById('durabel-pdf-modal')?.remove();
-    document.getElementById('durabel-print-footer')?.remove();
+  // ── Botão BAIXAR PDF (html2canvas + jsPDF — sem diálogo do iOS) ──
+  document.getElementById('pv-download').onclick = async () => {
+    const btn = document.getElementById('pv-download');
+    btn.textContent = '⏳ Gerando...';
+    btn.disabled = true;
+
+    try {
+      // Atualiza número de páginas
+      const A4H = 1122;
+      const total = Math.max(1, Math.ceil(doc.scrollHeight / A4H));
+      const pEl = document.getElementById('pdf-page-info');
+      if (pEl) pEl.textContent = `Página 1 de ${total}`;
+
+      // Aguarda libs carregarem
+      const waitLib = (name, ms = 5000) => new Promise((res, rej) => {
+        const t = Date.now();
+        const check = () => window[name] ? res() : Date.now() - t > ms ? rej(new Error(name + ' não carregou')) : setTimeout(check, 100);
+        check();
+      });
+      await waitLib('html2canvas');
+      await waitLib('jspdf');
+
+      const canvas = await window.html2canvas(doc, {
+        scale: 2, useCORS: true, allowTaint: true,
+        backgroundColor: '#ffffff', logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = pdf.internal.pageSize.getHeight();
+      const imgW = canvas.width;
+      const imgH = canvas.height;
+      const ratio = pdfW / (imgW / 2 * 0.264583); // px to mm
+      const pageImgH = pdfH / 0.264583 * 2; // mm to px @2x
+
+      let y = 0;
+      let page = 0;
+      while (y < imgH) {
+        if (page > 0) pdf.addPage();
+        const sliceH = Math.min(pageImgH, imgH - y);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = imgW;
+        sliceCanvas.height = sliceH;
+        sliceCanvas.getContext('2d').drawImage(canvas, 0, y, imgW, sliceH, 0, 0, imgW, sliceH);
+        pdf.addImage(sliceCanvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, sliceH * 0.264583 / 2);
+        y += pageImgH;
+        page++;
+      }
+
+      pdf.save(`DURAR_${today.replace(/\//g,'_')}.pdf`);
+    } catch (err) {
+      alert('Erro ao gerar PDF: ' + err.message);
+    } finally {
+      btn.textContent = '⬇️ Baixar PDF';
+      btn.disabled = false;
+    }
   };
+
+  document.getElementById('pv-close').onclick = () => modal.remove();
 }
 
 // ─────────────────────────────────────────────────────────
