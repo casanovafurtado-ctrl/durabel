@@ -206,6 +206,8 @@ export default function ChatPanel() {
         // Reproduz voz se habilitado
         if (voiceEnabled) {
           try {
+            // Para o mic antes de tocar áudio — iOS não permite os dois ao mesmo tempo
+            if (listeningRef.current) stopMic();
             setSpeaking(true);
             // Prepara texto para voz — limpa e limita para evitar falhas
             const voiceText = data.content
