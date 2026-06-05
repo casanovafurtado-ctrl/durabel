@@ -113,9 +113,25 @@ export default function ChatPanel() {
 
   const startMic = useCallback(() => {
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (!SR) return;
+    if (!SR) {
+      setVoiceError('Reconhecimento de voz não suportado neste navegador.');
+      setTimeout(() => setVoiceError(''), 3000);
+      return;
+    }
 
-    const rec = new SR();
+    // Garante que não há instância anterior
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
+    }
+
+    let rec;
+    try {
+      rec = new SR();
+    } catch {
+      return;
+    }
+
     rec.lang = 'pt-BR';
     rec.continuous = true;
     rec.interimResults = false;
@@ -130,14 +146,18 @@ export default function ChatPanel() {
     };
 
     rec.onerror = (e) => {
-      if (e.error !== 'aborted' && e.error !== 'no-speech') console.warn('Mic:', e.error);
+      if (e.error === 'not-allowed') {
+        setVoiceError('Permissão de microfone negada. Verifique as configurações.');
+        setTimeout(() => setVoiceError(''), 4000);
+      } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        console.warn('Mic:', e.error);
+      }
       recognitionRef.current = null;
       listeningRef.current = false;
       setListening(false);
     };
 
     rec.onend = () => {
-      // Só limpa se ainda está em modo de escuta (não foi parado manualmente)
       if (listeningRef.current) {
         recognitionRef.current = null;
         listeningRef.current = false;
@@ -148,7 +168,15 @@ export default function ChatPanel() {
     recognitionRef.current = rec;
     listeningRef.current = true;
     setListening(true);
-    try { rec.start(); } catch { stopMic(); }
+
+    try {
+      rec.start();
+    } catch (err) {
+      console.warn('Mic start:', err);
+      recognitionRef.current = null;
+      listeningRef.current = false;
+      setListening(false);
+    }
   }, [stopMic]);
 
   const toggleListening = useCallback(() => {
@@ -208,7 +236,7 @@ export default function ChatPanel() {
         if (voiceEnabled) {
           try {
             setSpeaking(true);
-            const voiceText = reply.replace(/[*#`_~]/g, '').replace(/\s+/g, ' ').trim().slice(0, 300);
+            const voiceText = reply.replace(/[*#`_~]/g, '').replace(/\s+/g, ' ').trim().slice(0, 600);
             const voiceRes = await fetch('/api/voice', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
