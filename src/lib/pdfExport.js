@@ -474,11 +474,6 @@ export function exportFinancePDF(proposals) {
         ` : ''}
       </div>
 
-      <!-- FOOTER -->
-      <div style="padding:20px 50px;background:#F8FAFF;border-top:2px solid #E2E8F0;display:flex;justify-content:space-between;">
-        <div style="font-size:10px;color:#6B7280;">DURAR Consultoria e Engenharia</div>
-        <div style="font-size:10px;color:#6B7280;">Gerado por DURABEL em ${new Date().toLocaleDateString('pt-BR')}</div>
-      </div>
     </div>
   `;
   createPrintWindow(html);
