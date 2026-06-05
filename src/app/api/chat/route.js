@@ -72,7 +72,7 @@ export async function POST(req) {
     const email = session?.user?.email;
 
     // Lê o body primeiro para ter acesso à clientKey
-    const { messages, anthropicKey: clientKey } = await req.json();
+    const { messages, anthropicKey: clientKey, crmData } = await req.json();
 
     // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
     let anthropicKey = clientKey || null;
@@ -92,9 +92,56 @@ export async function POST(req) {
 
     const client = new Anthropic({ apiKey: anthropicKey });
 
+    // Formata dados do CRM para contexto da IA
+    const formatCRM = (data) => {
+      if (!data?.clients?.length && !data?.proposals?.length) return '';
+
+      const clients = (data.clients || []).map(c => {
+        const items = (c.serviceItems || []).map(s =>
+          `${s.name}${s.value ? ` (R$ ${s.value})` : ''}`
+        ).join(', ');
+        const totalValue = (c.serviceItems || []).reduce((sum, s) => {
+          const v = parseFloat(String(s.value || '').replace(/\./g,'').replace(',','.')) || 0;
+          return sum + v;
+        }, 0);
+        return [
+          `- ${c.name}${c.building ? ` (${c.building})` : ''}`,
+          `  Status: ${c.status}`,
+          c.phone ? `  Telefone: ${c.phone}` : '',
+          c.email ? `  Email: ${c.email}` : '',
+          c.address ? `  Endereço: ${c.address}` : '',
+          items ? `  Serviços: ${items}` : '',
+          totalValue > 0 ? `  Valor total: R$ ${totalValue.toLocaleString('pt-BR', {minimumFractionDigits:2})}` : '',
+          c.notes ? `  Obs: ${c.notes}` : '',
+        ].filter(Boolean).join('
+');
+      }).join('
+
+');
+
+      const proposals = (data.proposals || []).map(p =>
+        `- ${p.client}: ${p.service || ''} — R$ ${p.value || '0'} (${p.status})`
+      ).join('
+');
+
+      let ctx = '';
+      if (clients) ctx += `
+CLIENTES CADASTRADOS NO CRM:
+${clients}`;
+      if (proposals) ctx += `
+
+PROPOSTAS MANUAIS:
+${proposals}`;
+      return ctx;
+    };
+
+    const crmContext = crmData ? formatCRM(crmData) : '';
+
     const contextMessage = {
       role: 'user',
-      content: `[Contexto: Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}. Email: ${email || 'não identificado'}]`,
+      content: `[Contexto: Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}. Email: ${email || 'não identificado'}.${crmContext ? `
+
+DADOS DO CRM E RESULTADOS:${crmContext}` : ''}]`,
     };
 
     const apiMessages = [
