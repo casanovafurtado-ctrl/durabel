@@ -149,108 +149,74 @@ function createPrintWindow(html) {
 // TEMPLATE: ATA DE REUNIÃO
 // ─────────────────────────────────────────────────────────
 export function exportMinutePDF(minute) {
+  const today = new Date().toLocaleDateString('pt-BR');
+
+  // Header HTML — reutilizado no thead
+  const headerHtml = `
+    <div style="background:linear-gradient(135deg,#060B18 0%,#0D1526 60%,#0055CC 100%);padding:16px 36px 14px;position:relative;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;background:rgba(0,187,255,0.08);"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-family:Arial Black,Arial,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:0.03em;">DUR<span style="color:#00BBFF;">AR</span></div>
+          <div style="font-size:8px;color:rgba(255,255,255,0.5);letter-spacing:0.25em;font-family:Arial,sans-serif;">CONSULTORIA E ENGENHARIA</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.15em;">DOCUMENTO</div>
+          <div style="font-size:11px;color:#00BBFF;margin-top:2px;font-family:Arial,sans-serif;">Ata de Reunião</div>
+        </div>
+      </div>
+      <div style="border-left:3px solid #00BBFF;padding-left:12px;">
+        <div style="font-family:Arial Black,Arial,sans-serif;font-size:15px;font-weight:900;color:#fff;line-height:1.3;">${minute.title}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:4px;font-family:Arial,sans-serif;">${minute.date}</div>
+      </div>
+      <div style="height:1px;background:linear-gradient(90deg,#00BBFF,transparent);margin-top:12px;"></div>
+    </div>`;
+
+  // Footer HTML — reutilizado no tfoot
+  const footerHtml = `
+    <div style="background:#060B18;border-top:3px solid #0077FF;padding:4mm 10mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <div>
+        <div style="font-family:Arial Black,sans-serif;font-size:11px;font-weight:900;color:#fff;">DUR<span style="color:#00BBFF;">AR</span></div>
+        <div style="font-family:Arial,sans-serif;font-size:7px;color:rgba(255,255,255,0.45);margin-top:1px;">CONSULTORIA E ENGENHARIA · Gerado por Durabel IA Secretária</div>
+      </div>
+      <div style="text-align:right;font-family:Arial,sans-serif;font-size:7px;color:rgba(255,255,255,0.45);">
+        <div>${today}</div>
+      </div>
+    </div>`;
+
   const html = `
-    <div style="width:100%;padding:0;font-family:'Inter',sans-serif;">
-      
-      <!-- HEADER -->
-      <div style="background:linear-gradient(135deg, #060B18 0%, #0D1526 60%, #0055CC 100%); padding:20px 36px 16px; position:relative; overflow:hidden;">
-        
-        <!-- Decorative circles -->
-        <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:rgba(0,187,255,0.08);"></div>
-        <div style="position:absolute;bottom:-60px;left:30%;width:150px;height:150px;border-radius:50%;background:rgba(0,119,255,0.06);"></div>
-        
-        <!-- Logo area -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
-          <div>
-            <div style="font-family:'Arial Black',Arial,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:0.03em;">
-              DUR<span style="color:#00BBFF;">AR</span>
-            </div>
-            <div style="font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:0.25em;margin-top:2px;font-family:Arial,sans-serif;font-weight:600;">
-              CONSULTORIA E ENGENHARIA
-            </div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:10px;color:rgba(255,255,255,0.5);letter-spacing:0.15em;">DOCUMENTO</div>
-            <div style="font-family:'Playfair Display',serif;font-size:13px;color:#00BBFF;margin-top:2px;">Ata de Reunião</div>
-          </div>
-        </div>
-        
-        <!-- Title -->
-        <div style="border-left:3px solid #00BBFF;padding-left:16px;">
-          <div style="font-family:'Arial Black',Arial,sans-serif;font-size:18px;font-weight:900;color:#fff;line-height:1.3;letter-spacing:0.01em;">
-            ${minute.title}
-          </div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:6px;font-weight:400;font-family:Arial,sans-serif;letter-spacing:0.05em;">
-            ${minute.date}
-          </div>
-        </div>
-        
-        <!-- Accent line -->
-        <div style="height:1px;background:linear-gradient(90deg,#00BBFF,transparent);margin-top:24px;"></div>
-      </div>
+    <table style="width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;">
+      <thead><tr><td style="padding:0;">${headerHtml}</td></tr></thead>
+      <tfoot><tr><td style="padding:0;">${footerHtml}</td></tr></tfoot>
+      <tbody>
+        <tr><td style="padding:24px 36px;vertical-align:top;">
 
-      <!-- CONTENT -->
-      <div style="padding:24px 36px;background:#fff;">
-        
-        <!-- Info strip -->
-        <div style="display:flex;gap:0;margin-bottom:32px;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;">
-          ${[
-            { label: 'Data', value: minute.date?.split(' ')[0] || '—' },
-            { label: 'Hora', value: minute.date?.split(' ')[1] || '—' },
-            { label: 'Empresa', value: 'DURAR Consultoria' },
-          ].map((item, i) => `
-            <div style="flex:1;padding:14px 20px;background:${i % 2 === 0 ? '#F8FAFF' : '#fff'};border-right:1px solid #E2E8F0;">
-              <div style="font-size:9px;font-weight:600;color:#6B7280;letter-spacing:0.15em;text-transform:uppercase;">${item.label}</div>
-              <div style="font-size:13px;font-weight:600;color:#1A1A2E;margin-top:3px;">${item.value}</div>
-            </div>
-          `).join('')}
-        </div>
-
-        <!-- Content -->
-        <div style="font-size:13px;line-height:1.8;color:#2D3748;white-space:pre-wrap;font-weight:300;">
-          ${minute.content
-            .replace(/^(#+\s.+)$/gm, '<div style="font-family:\'Playfair Display\',serif;font-size:15px;font-weight:600;color:#060B18;margin:24px 0 8px;padding-bottom:6px;border-bottom:2px solid #0077FF20;">$1</div>')
-            .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:600;color:#060B18;">$1</strong>')
-            .replace(/^[-•]\s(.+)$/gm, '<div style="display:flex;gap:8px;margin:4px 0;"><span style="color:#0077FF;margin-top:2px;">▸</span><span>$1</span></div>')
-          }
-        </div>
-      </div>
-
-      <!-- FOOTER -->
-
-
-      <!-- Signature area — extracts named participants from content -->
-      <div style="padding:16px 36px 20px;background:#fff;">
-        <div style="font-size:11px;font-weight:700;color:#6B7280;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:20px;font-family:Arial,sans-serif;">
-          Assinaturas
-        </div>
-        <div style="display:flex;gap:40px;flex-wrap:wrap;">
-          ${(() => {
-            // Extrai participantes do conteúdo
-            const lines = (minute.content || '').split('\n');
-            const participants = [];
-            let inParticipants = false;
-            for (const line of lines) {
-              if (/participante[s]?/i.test(line)) { inParticipants = true; continue; }
-              if (inParticipants && line.trim() === '') { inParticipants = false; }
-              if (inParticipants && line.trim()) {
-                const name = line.trim().split('—')[0].split('-')[0].trim();
-                if (name.length > 2 && name.length < 60) participants.push(name);
-              }
-            }
-            // Se não achou participantes, usa genérico
-            const sigs = participants.length > 0 ? participants : ['Responsável Técnico', 'Participante'];
-            return sigs.map(name => `
-              <div style="min-width:180px;flex:1;margin-bottom:20px;">
-                <div style="border-top:1.5px solid #1A1A2E;padding-top:10px;">
-                  <div style="font-size:11px;color:#374151;font-family:Arial,sans-serif;font-weight:500;">${name}</div>
-                </div>
+          <!-- Info strip -->
+          <div style="display:flex;gap:0;margin-bottom:24px;border:1px solid #E2E8F0;border-radius:10px;overflow:hidden;">
+            ${[
+              { label: 'Data', value: minute.date?.split(' ')[0] || '—' },
+              { label: 'Hora', value: minute.date?.split(' ')[1] || '—' },
+              { label: 'Empresa', value: 'DURAR Consultoria' },
+            ].map((item, i) => `
+              <div style="flex:1;padding:12px 16px;background:${i % 2 === 0 ? '#F8FAFF' : '#fff'};border-right:1px solid #E2E8F0;">
+                <div style="font-size:8px;font-weight:600;color:#6B7280;letter-spacing:0.15em;text-transform:uppercase;">${item.label}</div>
+                <div style="font-size:12px;font-weight:600;color:#1A1A2E;margin-top:2px;">${item.value}</div>
               </div>
-            `).join('');
-          })()}
-        </div>
-      </div>
-    </div>
+            `).join('')}
+          </div>
+
+          <!-- Content -->
+          <div style="font-size:13px;line-height:1.8;color:#2D3748;white-space:pre-wrap;font-weight:300;">
+            ${minute.content
+              .replace(/^(#+\s.+)$/gm, '<div style="font-family:Arial Black,Arial,sans-serif;font-size:14px;font-weight:900;color:#060B18;margin:20px 0 8px;padding-bottom:6px;border-bottom:2px solid #0077FF20;">$1</div>')
+              .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:600;color:#060B18;">$1</strong>')
+              .replace(/^[-•]\s(.+)$/gm, '<div style="display:flex;gap:8px;margin:4px 0;"><span style="color:#0077FF;margin-top:2px;">▸</span><span>$1</span></div>')
+            }
+          </div>
+
+        </td></tr>
+      </tbody>
+    </table>
   `;
   createPrintWindow(html);
 }
@@ -259,104 +225,107 @@ export function exportMinutePDF(minute) {
 // TEMPLATE: FICHA DE CLIENTE CRM
 // ─────────────────────────────────────────────────────────
 export function exportClientPDF(client) {
-  const STATUS_LABELS = {
-    prospecto: 'Prospecto', proposta: 'Proposta Enviada',
-    negociacao: 'Em Negociação', fechado: 'Fechado', perdido: 'Perdido',
-  };
-  const STATUS_COLORS = {
-    prospecto: '#6B7280', proposta: '#F59E0B',
-    negociacao: '#0077FF', fechado: '#10B981', perdido: '#EF4444',
-  };
+  const STATUS_LABELS = { prospecto:'Prospecto', proposta:'Proposta Enviada', negociacao:'Em Negociação', fechado:'Fechado', perdido:'Perdido' };
+  const STATUS_COLORS = { prospecto:'#6B7280', proposta:'#F59E0B', negociacao:'#0077FF', fechado:'#10B981', perdido:'#EF4444' };
   const statusColor = STATUS_COLORS[client.status] || '#6B7280';
   const statusLabel = STATUS_LABELS[client.status] || client.status;
+  const today = new Date().toLocaleDateString('pt-BR');
+
+  const items = client.serviceItems || [];
+  const totalValue = items.reduce((s, i) => s + (parseFloat(String(i.value||'').replace(/\./g,'').replace(',','.')) || 0), 0);
+
+  const headerHtml = `
+    <div style="background:linear-gradient(135deg,#060B18 0%,#0D1526 60%,#0055CC 100%);padding:16px 36px 14px;position:relative;overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;background:rgba(0,187,255,0.08);"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div>
+          <div style="font-family:Arial Black,Arial,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:0.03em;">DUR<span style="color:#00BBFF;">AR</span></div>
+          <div style="font-size:8px;color:rgba(255,255,255,0.5);letter-spacing:0.25em;font-family:Arial,sans-serif;">CONSULTORIA E ENGENHARIA</div>
+        </div>
+        <div style="background:${statusColor}22;border:1px solid ${statusColor}55;padding:5px 14px;border-radius:20px;">
+          <span style="font-size:10px;font-weight:600;color:${statusColor};">${statusLabel}</span>
+        </div>
+      </div>
+      <div style="border-left:3px solid #00BBFF;padding-left:12px;">
+        <div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:2px;">Ficha de Cliente</div>
+        <div style="font-family:Arial Black,Arial,sans-serif;font-size:16px;font-weight:900;color:#fff;line-height:1.3;">${client.name}</div>
+        ${client.building ? `<div style="font-size:11px;color:#00BBFF;margin-top:3px;">🏢 ${client.building}</div>` : ''}
+      </div>
+      <div style="height:1px;background:linear-gradient(90deg,#00BBFF,transparent);margin-top:12px;"></div>
+    </div>`;
+
+  const footerHtml = `
+    <div style="background:#060B18;border-top:3px solid #0077FF;padding:4mm 10mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <div>
+        <div style="font-family:Arial Black,sans-serif;font-size:11px;font-weight:900;color:#fff;">DUR<span style="color:#00BBFF;">AR</span></div>
+        <div style="font-family:Arial,sans-serif;font-size:7px;color:rgba(255,255,255,0.45);margin-top:1px;">CONSULTORIA E ENGENHARIA · Gerado por Durabel IA Secretária</div>
+      </div>
+      <div style="text-align:right;font-family:Arial,sans-serif;font-size:7px;color:rgba(255,255,255,0.45);">
+        <div>${today}</div>
+      </div>
+    </div>`;
 
   const html = `
-    <div style="width:100%;font-family:'Inter',sans-serif;">
+    <table style="width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;">
+      <thead><tr><td style="padding:0;">${headerHtml}</td></tr></thead>
+      <tfoot><tr><td style="padding:0;">${footerHtml}</td></tr></tfoot>
+      <tbody><tr><td style="padding:24px 36px;vertical-align:top;">
 
-      <!-- HEADER — mesmo padrão da minuta -->
-      <div style="background:linear-gradient(135deg,#060B18 0%,#0D1526 60%,#0055CC 100%);padding:20px 36px 16px;position:relative;overflow:hidden;">
-        <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:rgba(0,187,255,0.08);"></div>
-        <div style="position:absolute;bottom:-60px;left:30%;width:150px;height:150px;border-radius:50%;background:rgba(0,119,255,0.06);"></div>
-
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-          <div>
-            <div style="font-family:'Arial Black',Arial,sans-serif;font-size:18px;font-weight:900;color:#fff;letter-spacing:0.03em;">
-              DUR<span style="color:#00BBFF;">AR</span>
-            </div>
-            <div style="font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:0.25em;margin-top:2px;font-family:Arial,sans-serif;font-weight:600;">
-              CONSULTORIA E ENGENHARIA
-            </div>
-          </div>
-          <div style="background:${statusColor}22;border:1px solid ${statusColor}55;padding:5px 14px;border-radius:20px;">
-            <span style="font-size:10px;font-weight:600;color:${statusColor};">${statusLabel}</span>
-          </div>
-        </div>
-
-        <div style="border-left:3px solid #00BBFF;padding-left:12px;">
-          <div style="font-size:9px;color:rgba(255,255,255,0.4);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:4px;">Ficha de Cliente</div>
-          <div style="font-family:'Arial Black',Arial,sans-serif;font-size:16px;font-weight:900;color:#fff;line-height:1.3;">${client.name}</div>
-          ${client.building ? `<div style="font-size:11px;color:#00BBFF;margin-top:4px;">🏢 ${client.building}</div>` : ''}
-        </div>
-
-        <div style="height:1px;background:linear-gradient(90deg,#00BBFF,transparent);margin-top:16px;"></div>
-      </div>
-
-      <!-- CONTENT -->
-      <div style="padding:24px 36px;background:#fff;">
-        
-        <!-- Contact grid -->
-        <div style="margin-bottom:28px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:0.2em;color:#0077FF;text-transform:uppercase;margin-bottom:12px;">
-            Informações de Contato
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <!-- Contato -->
+        <div style="margin-bottom:20px;">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.2em;color:#0077FF;text-transform:uppercase;margin-bottom:10px;">Informações de Contato</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
             ${[
-              { icon: '📞', label: 'Telefone', value: client.phone },
-              { icon: '✉️', label: 'E-mail', value: client.email },
-              { icon: '📍', label: 'Endereço', value: client.address },
-              { icon: '🔧', label: 'Serviço', value: client.service },
+              { icon:'📞', label:'Telefone', value: client.phone },
+              { icon:'✉️', label:'E-mail', value: client.email },
+              { icon:'📄', label:'Documento', value: client.doc ? `${client.docType||'Doc'}: ${client.doc}` : null },
+              { icon:'📍', label:'Endereço', value: client.address },
             ].filter(f => f.value).map(f => `
-              <div style="background:#F8FAFF;border:1px solid #E2E8F0;border-radius:8px;padding:12px 16px;">
-                <div style="font-size:9px;font-weight:600;color:#6B7280;letter-spacing:0.1em;text-transform:uppercase;">${f.label}</div>
-                <div style="font-size:13px;color:#1A1A2E;margin-top:4px;font-weight:500;">${f.icon} ${f.value}</div>
+              <div style="background:#F8FAFF;border:1px solid #E2E8F0;border-radius:8px;padding:10px 14px;">
+                <div style="font-size:8px;font-weight:600;color:#6B7280;letter-spacing:0.1em;text-transform:uppercase;">${f.label}</div>
+                <div style="font-size:12px;color:#1A1A2E;margin-top:3px;font-weight:500;">${f.icon} ${f.value}</div>
               </div>
             `).join('')}
           </div>
         </div>
 
-        <!-- Financial -->
-        ${client.value ? `
-        <div style="margin-bottom:28px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:0.2em;color:#0077FF;text-transform:uppercase;margin-bottom:12px;">
-            Informações Comerciais
-          </div>
-          <div style="background:linear-gradient(135deg,#F0FFF4,#E6FFFA);border:1px solid #10B98133;border-radius:10px;padding:20px 24px;display:flex;justify-content:space-between;align-items:center;">
-            <div>
-              <div style="font-size:11px;color:#6B7280;font-weight:500;">Valor da Proposta</div>
-              <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#10B981;">R$ ${client.value}</div>
-            </div>
-            <div style="font-size:36px;">💰</div>
-          </div>
-        </div>
-        ` : ''}
+        <!-- Serviços -->
+        ${items.length > 0 ? `
+        <div style="margin-bottom:20px;">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.2em;color:#0077FF;text-transform:uppercase;margin-bottom:10px;">Informações Comerciais</div>
+          <table style="width:100%;border-collapse:collapse;border:1px solid #E2E8F0;border-radius:8px;overflow:hidden;">
+            <thead>
+              <tr style="background:#F8FAFF;">
+                <th style="padding:8px 12px;font-size:9px;font-weight:600;color:#6B7280;text-align:left;border-bottom:1px solid #E2E8F0;">Serviço</th>
+                <th style="padding:8px 12px;font-size:9px;font-weight:600;color:#6B7280;text-align:right;border-bottom:1px solid #E2E8F0;">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.map((item, i) => `
+                <tr style="background:${i%2===0?'#fff':'#FAFBFF'}">
+                  <td style="padding:8px 12px;font-size:12px;color:#1A1A2E;border-bottom:1px solid #F1F5F9;">${item.name||'—'}</td>
+                  <td style="padding:8px 12px;font-size:12px;color:#10B981;font-weight:600;text-align:right;border-bottom:1px solid #F1F5F9;">${item.value ? 'R$ '+item.value : '—'}</td>
+                </tr>
+              `).join('')}
+              ${totalValue > 0 ? `
+              <tr style="background:#F8FAFF;">
+                <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#1A1A2E;">Total</td>
+                <td style="padding:10px 12px;font-size:14px;font-weight:700;color:#10B981;text-align:right;">R$ ${totalValue.toLocaleString('pt-BR',{minimumFractionDigits:2})}</td>
+              </tr>` : ''}
+            </tbody>
+          </table>
+        </div>` : ''}
 
-        <!-- Notes -->
+        <!-- Observações -->
         ${client.notes ? `
-        <div style="margin-bottom:28px;">
-          <div style="font-size:10px;font-weight:700;letter-spacing:0.2em;color:#0077FF;text-transform:uppercase;margin-bottom:12px;">
-            Observações
-          </div>
-          <div style="background:#F8FAFF;border-left:3px solid #0077FF;padding:16px 20px;border-radius:0 8px 8px 0;font-size:13px;color:#2D3748;line-height:1.7;">
-            ${client.notes}
-          </div>
-        </div>
-        ` : ''}
-      </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.2em;color:#0077FF;text-transform:uppercase;margin-bottom:8px;">Observações</div>
+          <div style="background:#F8FAFF;border-left:3px solid #0077FF;padding:12px 16px;border-radius:0 8px 8px 0;font-size:12px;color:#2D3748;line-height:1.7;">${client.notes}</div>
+        </div>` : ''}
 
-      <!-- FOOTER -->
+      </td></tr></tbody>
+    </table>`;
 
-    </div>
-  `;
   createPrintWindow(html);
 }
 
