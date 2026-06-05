@@ -71,7 +71,7 @@ export async function POST(req) {
     const accessToken = session?.access_token;
     const email = session?.user?.email;
 
-    // Lê o body primeiro para ter acesso à clientKey e dados do CRM
+    // Lê o body com crmData incluído
     const { messages, anthropicKey: clientKey, crmData } = await req.json();
 
     // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
@@ -92,36 +92,25 @@ export async function POST(req) {
 
     const client = new Anthropic({ apiKey: anthropicKey });
 
-    // Formata dados do CRM para contexto da IA
+    // Monta contexto com dados do CRM
     let crmContext = '';
     if (crmData?.clients?.length > 0) {
       const clientList = crmData.clients.map(c => {
-        const items = (c.serviceItems || []).map(s =>
-          s.name + (s.value ? ` (R$ ${s.value})` : '')
-        ).filter(Boolean).join(', ');
-        const total = (c.serviceItems || []).reduce((sum, s) => {
-          return sum + (parseFloat(String(s.value || '').replace(/\./g, '').replace(',', '.')) || 0);
-        }, 0);
-        return [
-          `- ${c.name}${c.building ? ` (${c.building})` : ''} | Status: ${c.status}`,
-          c.phone ? `  Tel: ${c.phone}` : '',
-          items ? `  Serviços: ${items}` : '',
-          total > 0 ? `  Valor total: R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits:2})}` : '',
-          c.notes ? `  Obs: ${c.notes}` : '',
-        ].filter(Boolean).join('\n');
+        const items = (c.serviceItems || []).map(s => s.name + (s.value ? ` R$${s.value}` : '')).filter(Boolean).join(', ');
+        return `- ${c.name}${c.building ? ` (${c.building})` : ''} [${c.status}]${items ? ' | ' + items : ''}${c.phone ? ' | ' + c.phone : ''}${c.notes ? ' | Obs: ' + c.notes : ''}`;
       }).join('\n');
-      crmContext += `\n\nCLIENTES NO CRM (${crmData.clients.length} cadastrados):\n${clientList}`;
+      crmContext += `\n\nCLIENTES NO CRM (${crmData.clients.length}):\n${clientList}`;
     }
     if (crmData?.proposals?.length > 0) {
-      const propList = crmData.proposals.map(p =>
-        `- ${p.client}: ${p.service || ''} R$ ${p.value || '0'} (${p.status})`
-      ).join('\n');
-      crmContext += `\n\nPROPOSTAS MANUAIS:\n${propList}`;
+      crmContext += `\n\nPROPOSTAS: ${crmData.proposals.map(p => `${p.client} R$${p.value || '0'} (${p.status})`).join(', ')}`;
+    }
+    if (crmData?.minutes?.length > 0) {
+      crmContext += `\n\nATAS SALVAS: ${crmData.minutes.map(m => m.title).join(', ')}`;
     }
 
     const contextMessage = {
       role: 'user',
-      content: `[Contexto: Data e hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}. Email: ${email || 'não identificado'}.${crmContext}]`,
+      content: `[Data/hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}.${crmContext}]`,
     };
 
     const apiMessages = [
