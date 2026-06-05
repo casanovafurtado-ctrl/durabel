@@ -1,120 +1,103 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { TrendingUp, DollarSign, FileText, CheckCircle, XCircle, Clock, RefreshCw, Plus } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { TrendingUp, DollarSign, Clock, XCircle, CheckCircle, Plus, ChevronRight, X } from 'lucide-react';
+import { parseCurrency } from './CRMPanel';
 
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-const STATUS_OPTS = [
-  { key: 'enviada', label: 'Enviada',  color: '#F59E0B', bg: '#FFF9E6', icon: Clock },
-  { key: 'fechada', label: 'Fechada',  color: '#10B981', bg: '#F0FFF4', icon: CheckCircle },
-  { key: 'perdida', label: 'Perdida',  color: '#EF4444', bg: '#FFF5F5', icon: XCircle },
-];
-
-// Converte "1.500,00" → 1500
-const parseCurrency = (v) => {
-  if (!v) return 0;
-  return parseFloat(String(v).replace(/\./g, '').replace(',', '.')) || 0;
+const crmToStatus = (s) => {
+  if (s === 'fechado') return 'fechada';
+  if (s === 'perdido') return 'perdida';
+  if (['proposta','negociacao'].includes(s)) return 'enviada';
+  return null;
 };
 
-// Formata 1500 → "R$ 1.500,00"
-const formatCurrency = (v) => {
-  if (!v) return '—';
-  return `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-};
+const fmtCurrency = (v) => v > 0 ? `R$ ${Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2})}` : 'R$ 0,00';
+const fmtShort = (v) => v >= 1000 ? `R$${(v/1000).toFixed(1)}k` : `R$${v.toFixed(0)}`;
 
-// Mapeia status do CRM para status de proposta
-const crmStatusToProposal = (crmStatus) => {
-  if (crmStatus === 'fechado') return 'fechada';
-  if (crmStatus === 'perdido') return 'perdida';
-  if (['proposta', 'negociacao'].includes(crmStatus)) return 'enviada';
-  return null; // prospecto não entra
-};
-
-function StatCard({ icon: Icon, label, value, sub, color }) {
+// ─── Modal de detalhes ─────────────────────────────────
+function DetailModal({ title, items, onClose }) {
   return (
-    <div className="rounded-2xl p-4" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2"
-        style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
-        <Icon size={18} style={{ color }} />
-      </div>
-      <div className="text-2xl font-bold" style={{ color: 'var(--text)', fontFamily: 'Syne, sans-serif' }}>{value}</div>
-      <div className="text-xs font-semibold mt-0.5" style={{ color: 'var(--muted)' }}>{label}</div>
-      {sub && <div className="text-xs mt-1" style={{ color }}>{sub}</div>}
-    </div>
-  );
-}
-
-function BarChart({ data, max, color }) {
-  return (
-    <div className="flex items-end gap-1.5 h-20">
-      {data.map((v, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1">
-          <div className="w-full rounded-t-md transition-all"
-            style={{
-              height: max > 0 ? `${(v / max) * 64}px` : '4px',
-              background: v > 0 ? `linear-gradient(180deg, ${color}, ${color}88)` : 'var(--border)',
-              minHeight: '4px',
-            }} />
-          <span style={{ color: 'var(--dim)', fontSize: '9px' }}>{MONTHS[i]}</span>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="w-full max-w-lg rounded-t-3xl pb-8 flex flex-col" style={{ background: 'var(--card)', maxHeight: '80vh' }} onClick={e => e.stopPropagation()}>
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+          <h3 className="font-bold text-sm" style={{ fontFamily: 'Syne, sans-serif', color: 'var(--text)' }}>{title}</h3>
+          <button onClick={onClose} style={{ color: 'var(--muted)' }}><X size={18} /></button>
         </div>
-      ))}
+        <div className="flex-1 overflow-y-auto px-5 pt-3">
+          {items.length === 0 ? (
+            <p className="text-sm text-center py-8" style={{ color: 'var(--muted)' }}>Nenhum item</p>
+          ) : items.map((item, i) => (
+            <div key={i} className="flex items-center justify-between py-3"
+              style={{ borderBottom: '1px solid var(--border)' }}>
+              <div className="flex-1 min-w-0 pr-3">
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--text)', fontFamily: 'Inter' }}>{item.client}</p>
+                {item.service && <p className="text-xs truncate" style={{ color: 'var(--muted)' }}>{item.service}</p>}
+                {item.month !== undefined && <p className="text-xs" style={{ color: 'var(--dim)' }}>{MONTHS[item.month]}</p>}
+              </div>
+              <span className="font-bold text-sm flex-shrink-0" style={{ color: item.color || '#10B981', fontFamily: 'Syne' }}>
+                {item.value > 0 ? fmtCurrency(item.value) : '—'}
+              </span>
+            </div>
+          ))}
+          {items.length > 0 && (
+            <div className="flex justify-between py-3 mt-1">
+              <span className="text-sm font-bold" style={{ color: 'var(--text)', fontFamily: 'Syne' }}>Total</span>
+              <span className="text-sm font-bold" style={{ color: '#10B981', fontFamily: 'Syne' }}>
+                {fmtCurrency(items.reduce((s,i) => s+(i.value||0), 0))}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// Modal para registrar proposta manual
+// ─── Modal nova proposta manual ────────────────────────
 function NewProposalModal({ onClose, onSave }) {
   const [form, setForm] = useState({ client: '', service: '', value: '', status: 'enviada', month: new Date().getMonth() });
-
   const handleValue = (v) => {
-    const digits = v.replace(/\D/g, '');
-    if (!digits) { setForm(p => ({ ...p, value: '' })); return; }
-    const num = parseInt(digits, 10) / 100;
-    setForm(p => ({ ...p, value: num.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }));
+    const d = v.replace(/\D/g,'');
+    if (!d) { setForm(p=>({...p,value:''})); return; }
+    setForm(p=>({...p, value: (parseInt(d,10)/100).toLocaleString('pt-BR',{minimumFractionDigits:2})}));
   };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }}
-      onClick={onClose}>
-      <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10 animate-slide-up"
-        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-        onClick={e => e.stopPropagation()}>
-        <h2 className="text-base font-bold mb-4" style={{ fontFamily: 'Syne, sans-serif' }}>Registrar Proposta Manual</h2>
+    <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
+      <div className="w-full max-w-lg rounded-t-3xl p-6 pb-10 animate-slide-up" style={{ background: 'var(--card)' }} onClick={e => e.stopPropagation()}>
+        <h2 className="text-base font-bold mb-4" style={{ fontFamily: 'Syne, sans-serif' }}>Registrar Proposta</h2>
         <div className="space-y-3">
-          <input value={form.client} onChange={e => setForm(p => ({ ...p, client: e.target.value }))}
-            placeholder="Cliente / Condomínio *"
+          <input value={form.client} onChange={e => setForm(p=>({...p,client:e.target.value}))} placeholder="Cliente *"
+            className="w-full rounded-xl px-3 py-2.5 text-sm"
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }} />
+          <input value={form.service} onChange={e => setForm(p=>({...p,service:e.target.value}))} placeholder="Serviço"
             className="w-full rounded-xl px-3 py-2.5 text-sm"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }} />
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold" style={{ color: 'var(--muted)' }}>R$</span>
-              <input value={form.value} onChange={e => handleValue(e.target.value)}
-                placeholder="0,00"
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--muted)' }}>R$</span>
+              <input value={form.value} onChange={e => handleValue(e.target.value)} placeholder="0,00"
                 className="w-full rounded-xl pl-9 pr-3 py-2.5 text-sm"
                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }} />
             </div>
-            <select value={form.month} onChange={e => setForm(p => ({ ...p, month: parseInt(e.target.value) }))}
+            <select value={form.month} onChange={e => setForm(p=>({...p,month:parseInt(e.target.value)}))}
               className="w-full rounded-xl px-3 py-2.5 text-sm"
               style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }}>
-              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              {MONTHS.map((m,i) => <option key={i} value={i}>{m}</option>)}
             </select>
           </div>
           <div className="flex gap-2">
-            {STATUS_OPTS.map(({ key, label, color }) => (
-              <button key={key} onClick={() => setForm(p => ({ ...p, status: key }))}
+            {[['enviada','Enviada','#F59E0B'],['fechada','Fechada','#10B981'],['perdida','Perdida','#EF4444']].map(([k,l,c]) => (
+              <button key={k} onClick={() => setForm(p=>({...p,status:k}))}
                 className="flex-1 py-2 rounded-xl text-xs font-semibold"
-                style={{
-                  background: form.status === key ? `${color}20` : 'var(--bg)',
-                  border: `1px solid ${form.status === key ? color : 'var(--border)'}`,
-                  color: form.status === key ? color : 'var(--muted)',
-                  fontFamily: 'Inter',
-                }}>{label}</button>
+                style={{ background: form.status===k ? `${c}20` : 'var(--bg)', border: `1px solid ${form.status===k ? c : 'var(--border)'}`, color: form.status===k ? c : 'var(--muted)', fontFamily: 'Inter' }}>
+                {l}
+              </button>
             ))}
           </div>
         </div>
-        <button onClick={() => { if (form.client) { onSave(form); onClose(); }}}
-          disabled={!form.client}
+        <button onClick={() => { if(form.client){onSave(form);onClose();} }} disabled={!form.client}
           className="btn-glow w-full py-3 rounded-2xl text-white text-sm font-semibold mt-4"
           style={{ fontFamily: 'Inter', opacity: !form.client ? 0.5 : 1 }}>
           Registrar
@@ -124,15 +107,61 @@ function NewProposalModal({ onClose, onSave }) {
   );
 }
 
+// ─── Bar Chart interativo ──────────────────────────────
+function InteractiveBarChart({ data, onClickMonth }) {
+  const max = Math.max(...data, 1);
+  return (
+    <div className="flex items-end gap-1.5 h-24">
+      {data.map((v, i) => (
+        <button key={i} onClick={() => onClickMonth(i)}
+          className="flex-1 flex flex-col items-center gap-1 group"
+          style={{ background: 'none', border: 'none', cursor: v > 0 ? 'pointer' : 'default' }}>
+          <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: 'var(--blue)', fontSize: '9px', fontFamily: 'Inter' }}>
+            {v > 0 ? fmtShort(v) : ''}
+          </span>
+          <div className="w-full rounded-t-md transition-all group-hover:opacity-80"
+            style={{
+              height: `${Math.max((v/max)*64, 4)}px`,
+              background: v > 0 ? 'linear-gradient(180deg, #0077FF, #0077FF88)' : 'var(--border)',
+              minHeight: '4px',
+            }} />
+          <span style={{ color: 'var(--dim)', fontSize: '9px' }}>{MONTHS[i]}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── KPI Card ──────────────────────────────────────────
+function KpiCard({ icon: Icon, label, value, sub, color, onClick }) {
+  return (
+    <button onClick={onClick}
+      className="rounded-2xl p-3 text-left w-full transition-all hover:scale-[1.02]"
+      style={{ background: 'var(--card)', border: '1px solid var(--border)', cursor: onClick ? 'pointer' : 'default' }}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+          style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+          <Icon size={16} style={{ color }} />
+        </div>
+        {onClick && <ChevronRight size={12} style={{ color: 'var(--dim)', marginLeft: 'auto' }} />}
+      </div>
+      <div className="text-xl font-bold" style={{ color: 'var(--text)', fontFamily: 'Syne, sans-serif' }}>{value}</div>
+      <div className="text-xs font-semibold mt-0.5" style={{ color: 'var(--muted)' }}>{label}</div>
+      {sub && <div className="text-xs mt-0.5" style={{ color }}>{sub}</div>}
+    </button>
+  );
+}
+
+// ─── MAIN ──────────────────────────────────────────────
 export default function FinancePanel() {
   const [manualProposals, setManualProposals] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [detail, setDetail] = useState(null); // { title, items }
+  const [selectedMonth, setSelectedMonth] = useState(null);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('durabel_proposals');
-      if (saved) setManualProposals(JSON.parse(saved));
-    } catch {}
+    try { const s = localStorage.getItem('durabel_proposals'); if(s) setManualProposals(JSON.parse(s)); } catch {}
   }, []);
 
   const saveManual = (updated) => {
@@ -140,59 +169,91 @@ export default function FinancePanel() {
     try { localStorage.setItem('durabel_proposals', JSON.stringify(updated)); } catch {}
   };
 
-  const addManual = (form) => {
-    saveManual([{ ...form, id: Date.now().toString(), source: 'manual' }, ...manualProposals]);
-  };
-
-  // Combina dados do CRM + manuais
-  const allProposals = useCallback(() => {
-    const crmProposals = [];
+  // Expande clientes com múltiplos serviços em linhas individuais
+  const allProposals = useMemo(() => {
+    const results = [];
     try {
       const clients = JSON.parse(localStorage.getItem('durabel_clients') || '[]');
+      const now = new Date().getMonth();
+
       clients.forEach(c => {
-        const status = crmStatusToProposal(c.status);
-        if (status && c.value) {
-          crmProposals.push({
+        const status = crmToStatus(c.status);
+        if (!status) return;
+
+        const items = c.serviceItems || [];
+        if (items.length > 0) {
+          // Múltiplos serviços — cada um vira uma linha
+          items.forEach(item => {
+            if (item.name || item.value) {
+              results.push({
+                id: `crm_${c.id}_${item.name}`,
+                client: c.name + (c.building ? ` — ${c.building}` : ''),
+                service: item.name,
+                value: parseCurrency(item.value),
+                status,
+                month: now,
+                source: 'crm',
+              });
+            }
+          });
+        } else if (c.value) {
+          // Compatibilidade com registro antigo (campo único)
+          results.push({
             id: `crm_${c.id}`,
             client: c.name + (c.building ? ` — ${c.building}` : ''),
+            service: c.service || '',
             value: parseCurrency(c.value),
             status,
-            month: new Date().getMonth(), // mês atual como aproximação
+            month: now,
             source: 'crm',
-            service: c.service === 'Outro (personalizado)' && c.serviceCustom ? c.serviceCustom : c.service,
           });
         }
       });
     } catch {}
 
-    const manual = manualProposals.map(p => ({
-      ...p,
-      value: parseCurrency(p.value),
-      source: p.source || 'manual',
-    }));
+    // Manuais
+    manualProposals.forEach(p => {
+      results.push({ ...p, value: parseCurrency(p.value), source: p.source || 'manual' });
+    });
 
-    // Evita duplicatas: se já tem manual com mesmo cliente, não adiciona do CRM
-    const manualClients = new Set(manual.map(p => p.client?.toLowerCase()));
-    const filteredCRM = crmProposals.filter(p => !manualClients.has(p.client?.toLowerCase()));
-
-    return [...filteredCRM, ...manual];
+    return results;
   }, [manualProposals]);
 
-  const proposals = allProposals();
-
   // Métricas
-  const total = proposals.length;
-  const fechadas = proposals.filter(p => p.status === 'fechada');
-  const perdidas = proposals.filter(p => p.status === 'perdida');
-  const pendentes = proposals.filter(p => p.status === 'enviada');
-  const conversion = total > 0 ? Math.round((fechadas.length / total) * 100) : 0;
-  const totalFaturado = fechadas.reduce((s, p) => s + (p.value || 0), 0);
-  const totalPipeline = pendentes.reduce((s, p) => s + (p.value || 0), 0);
+  const total = allProposals.length;
+  const fechadas = allProposals.filter(p => p.status === 'fechada');
+  const enviadas = allProposals.filter(p => p.status === 'enviada');
+  const perdidas = allProposals.filter(p => p.status === 'perdida');
+  const totalFaturado = fechadas.reduce((s,p) => s+p.value, 0);
+  const totalPipeline = enviadas.reduce((s,p) => s+p.value, 0);
+  const ticketMedio = fechadas.length > 0 ? totalFaturado / fechadas.length : 0;
+  const conversion = total > 0 ? Math.round((fechadas.length/total)*100) : 0;
+  const taxaPerda = total > 0 ? Math.round((perdidas.length/total)*100) : 0;
 
   // Gráfico mensal
   const byMonth = Array(12).fill(0);
-  fechadas.forEach(p => { if (p.month >= 0 && p.month < 12) byMonth[p.month] += p.value || 0; });
-  const maxMonth = Math.max(...byMonth, 1);
+  fechadas.forEach(p => { if (p.month >= 0 && p.month < 12) byMonth[p.month] += p.value; });
+
+  // Ranking de serviços
+  const serviceRanking = useMemo(() => {
+    const map = {};
+    fechadas.forEach(p => {
+      const key = p.service || 'Não especificado';
+      if (!map[key]) map[key] = { count: 0, total: 0 };
+      map[key].count++;
+      map[key].total += p.value;
+    });
+    return Object.entries(map).sort((a,b) => b[1].total - a[1].total).slice(0, 5);
+  }, [fechadas]);
+
+  const handleClickMonth = (monthIdx) => {
+    const items = fechadas.filter(p => p.month === monthIdx);
+    if (items.length === 0) return;
+    setDetail({
+      title: `Fechados em ${MONTHS[monthIdx]}`,
+      items: items.map(p => ({ client: p.client, service: p.service, value: p.value, color: '#10B981' })),
+    });
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -201,73 +262,103 @@ export default function FinancePanel() {
         <div>
           <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Resultados</h2>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>
-            {proposals.filter(p => p.source === 'crm').length} do CRM · {manualProposals.length} manuais
+            {allProposals.filter(p=>p.source==='crm').length} do CRM · {manualProposals.length} manuais
           </p>
         </div>
         <button onClick={() => setShowModal(true)}
-          className="btn-glow h-9 px-4 rounded-xl flex items-center gap-1.5 text-white text-sm"
-          style={{ fontFamily: 'Inter' }}>
+          className="btn-glow h-9 px-4 rounded-xl flex items-center gap-1.5 text-white text-sm" style={{ fontFamily: 'Inter' }}>
           <Plus size={14} /> Registrar
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-4">
 
-        {/* Info CRM sync */}
-        {proposals.filter(p => p.source === 'crm').length > 0 && (
-          <div className="rounded-xl px-4 py-2.5 mb-4 flex items-center gap-2"
-            style={{ background: 'rgba(0,119,255,0.06)', border: '1px solid rgba(0,119,255,0.2)' }}>
-            <RefreshCw size={13} style={{ color: 'var(--blue)' }} />
-            <p className="text-xs" style={{ color: 'var(--blue)', fontFamily: 'Inter' }}>
-              Sincronizado com a aba Clientes automaticamente
-            </p>
+        {/* KPIs — clicáveis */}
+        <div className="grid grid-cols-2 gap-2">
+          <KpiCard icon={TrendingUp} label="Taxa de Conversão" value={`${conversion}%`}
+            sub={`${fechadas.length} de ${total}`} color="#0077FF"
+            onClick={() => setDetail({ title: 'Propostas Fechadas', items: fechadas.map(p=>({client:p.client,service:p.service,value:p.value,month:p.month,color:'#10B981'})) })} />
+          <KpiCard icon={DollarSign} label="Faturado" value={fmtShort(totalFaturado)}
+            sub="propostas fechadas" color="#10B981"
+            onClick={() => setDetail({ title: 'Detalhes Faturamento', items: fechadas.map(p=>({client:p.client,service:p.service,value:p.value,month:p.month,color:'#10B981'})) })} />
+          <KpiCard icon={Clock} label="Pipeline" value={fmtShort(totalPipeline)}
+            sub={`${enviadas.length} em aberto`} color="#F59E0B"
+            onClick={() => setDetail({ title: 'Pipeline — Em Negociação', items: enviadas.map(p=>({client:p.client,service:p.service,value:p.value,color:'#F59E0B'})) })} />
+          <KpiCard icon={XCircle} label="Taxa de Perda" value={`${taxaPerda}%`}
+            sub={`${perdidas.length} perdidas`} color="#EF4444"
+            onClick={() => setDetail({ title: 'Propostas Perdidas', items: perdidas.map(p=>({client:p.client,service:p.service,value:p.value,color:'#EF4444'})) })} />
+        </div>
+
+        {/* Ticket médio */}
+        <div className="rounded-2xl p-3 flex items-center justify-between"
+          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+          <div>
+            <p className="text-xs font-bold" style={{ color: 'var(--muted)' }}>TICKET MÉDIO</p>
+            <p className="text-xl font-bold" style={{ color: 'var(--text)', fontFamily: 'Syne' }}>{fmtCurrency(ticketMedio)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>Acumulado</p>
+            <p className="text-base font-bold" style={{ color: '#10B981', fontFamily: 'Syne' }}>{fmtCurrency(totalFaturado)}</p>
+          </div>
+        </div>
+
+        {/* Gráfico interativo */}
+        <div className="rounded-2xl p-4" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold tracking-widest" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
+              FATURAMENTO MENSAL
+            </h3>
+            <p className="text-xs" style={{ color: 'var(--dim)' }}>Toque na barra para ver detalhes</p>
+          </div>
+          <InteractiveBarChart data={byMonth} onClickMonth={handleClickMonth} />
+        </div>
+
+        {/* Ranking de serviços */}
+        {serviceRanking.length > 0 && (
+          <div className="rounded-2xl p-4" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+            <h3 className="text-xs font-bold tracking-widest mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
+              TOP SERVIÇOS CONTRATADOS
+            </h3>
+            {serviceRanking.map(([service, data], i) => {
+              const maxTotal = serviceRanking[0][1].total;
+              return (
+                <div key={service} className="mb-3">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs font-medium truncate pr-2" style={{ color: 'var(--text)', fontFamily: 'Inter', maxWidth: '65%' }}>
+                      {i+1}. {service}
+                    </span>
+                    <span className="text-xs font-bold flex-shrink-0" style={{ color: '#10B981' }}>
+                      {fmtShort(data.total)} ({data.count}x)
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${(data.total/maxTotal)*100}%`, background: 'linear-gradient(90deg, #0077FF, #00BBFF)' }} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <StatCard icon={TrendingUp} label="Taxa de Conversão" value={`${conversion}%`}
-            sub={`${fechadas.length} de ${total}`} color="#0077FF" />
-          <StatCard icon={DollarSign} label="Faturado" value={`R$${(totalFaturado/1000).toFixed(0)}k`}
-            sub="propostas fechadas" color="#10B981" />
-          <StatCard icon={Clock} label="Pipeline" value={`R$${(totalPipeline/1000).toFixed(0)}k`}
-            sub={`${pendentes.length} em aberto`} color="#F59E0B" />
-          <StatCard icon={XCircle} label="Taxa de Perda"
-            value={total > 0 ? `${Math.round((perdidas.length/total)*100)}%` : '0%'}
-            sub={`${perdidas.length} perdidas`} color="#EF4444" />
-        </div>
-
-        {/* Chart */}
-        <div className="rounded-2xl p-4 mb-4"
-          style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-          <h3 className="text-xs font-bold mb-4 tracking-widest" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
-            FATURAMENTO MENSAL (R$)
-          </h3>
-          <BarChart data={byMonth} max={maxMonth} color="#0077FF" />
-        </div>
-
-        {/* Lista */}
-        {proposals.length > 0 && (
-          <div>
-            <h3 className="text-xs font-bold tracking-widest mb-3" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
-              PROPOSTAS · {proposals.length}
-            </h3>
-            {proposals.slice(0, 20).map(p => {
-              const st = STATUS_OPTS.find(s => s.key === p.status) || STATUS_OPTS[0];
+        {/* Lista de propostas */}
+        {allProposals.length > 0 && (
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+            <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+              <h3 className="text-xs font-bold tracking-widest" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
+                TODAS AS PROPOSTAS · {allProposals.length}
+              </h3>
+            </div>
+            {allProposals.slice(0,25).map(p => {
+              const color = p.status === 'fechada' ? '#10B981' : p.status === 'perdida' ? '#EF4444' : '#F59E0B';
               return (
-                <div key={p.id} className="flex items-center gap-3 py-3"
-                  style={{ borderBottom: '1px solid var(--border)' }}>
-                  <st.icon size={16} style={{ color: st.color, flexShrink: 0 }} />
+                <div key={p.id} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text)', fontFamily: 'Inter' }}>
-                      {p.client}
-                    </p>
-                    <p className="text-xs" style={{ color: 'var(--muted)' }}>
-                      {MONTHS[p.month]} · {p.source === 'crm' ? '📊 CRM' : '✏️ Manual'}
-                    </p>
+                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text)', fontFamily: 'Inter' }}>{p.client}</p>
+                    {p.service && <p className="text-xs truncate" style={{ color: 'var(--muted)' }}>{p.service}</p>}
                   </div>
-                  <span className="text-sm font-semibold flex-shrink-0" style={{ color: st.color, fontFamily: 'Syne' }}>
-                    {p.value > 0 ? formatCurrency(p.value) : '—'}
+                  <span className="text-xs font-bold flex-shrink-0" style={{ color, fontFamily: 'Syne' }}>
+                    {p.value > 0 ? fmtShort(p.value) : '—'}
                   </span>
                 </div>
               );
@@ -275,17 +366,22 @@ export default function FinancePanel() {
           </div>
         )}
 
-        {proposals.length === 0 && (
+        {allProposals.length === 0 && (
           <div className="text-center py-8">
             <TrendingUp size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
-            <p style={{ color: 'var(--muted)', fontFamily: 'Inter' }}>
-              Cadastre clientes com valor para ver as métricas
-            </p>
+            <p style={{ color: 'var(--muted)', fontFamily: 'Inter' }}>Cadastre clientes com serviços e valores para ver as métricas</p>
           </div>
         )}
       </div>
 
-      {showModal && <NewProposalModal onClose={() => setShowModal(false)} onSave={addManual} />}
+      {showModal && <NewProposalModal onClose={() => setShowModal(false)} onSave={p => saveManual([{...p,id:Date.now().toString(),...p}, ...manualProposals])} />}
+      {detail && <DetailModal title={detail.title} items={detail.items} onClose={() => setDetail(null)} />}
+      {selectedMonth !== null && (
+        <DetailModal
+          title={`${MONTHS[selectedMonth]} — Faturamento`}
+          items={fechadas.filter(p => p.month === selectedMonth).map(p => ({ client: p.client, service: p.service, value: p.value, color: '#10B981' }))}
+          onClose={() => setSelectedMonth(null)} />
+      )}
     </div>
   );
 }
