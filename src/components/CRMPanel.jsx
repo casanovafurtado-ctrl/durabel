@@ -294,6 +294,15 @@ function ClientModal({ client, onClose, onSave }) {
             </div>
           </div>
 
+          {form.docType === 'CNPJ' && (
+            <div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Responsável / Contato</label>
+              <input value={form.responsible} onChange={e => set('responsible', e.target.value)} placeholder="Nome do síndico ou responsável"
+                className="w-full rounded-xl px-3 py-2.5 text-sm"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }} />
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Telefone / WhatsApp</label>
@@ -420,6 +429,12 @@ function ClientCard({ client, onEdit, onExport, onWhatsApp, onDelete }) {
       {expanded && (
         <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--border)' }}>
           <div className="pt-3 space-y-2">
+            {client.responsible && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs w-16 font-semibold" style={{ color: 'var(--dim)' }}>Contato</span>
+                <span className="text-xs font-medium" style={{ color: 'var(--blue)' }}>{client.responsible}</span>
+              </div>
+            )}
             {client.phone && (
               <div className="flex items-center gap-2">
                 <span className="text-xs w-16 font-semibold" style={{ color: 'var(--dim)' }}>Telefone</span>
