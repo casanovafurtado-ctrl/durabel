@@ -25,12 +25,26 @@ Data: ${date}
 Inclua obrigatoriamente: Título, Data, Participantes (se mencionados), Pauta, Pontos Discutidos em detalhes, Decisões Tomadas, Próximas Ações com responsáveis e prazos quando mencionados.
 Use seções bem definidas. Sem asteriscos ou markdown, apenas texto limpo com quebras de linha.
 
+Ao final do documento, inclua uma seção de ASSINATURAS com cada participante mencionado na transcrição. Para cada um, escreva o nome seguido de uma linha em branco e um traço longo (_______________) para a assinatura física. Exemplo:
+
+ASSINATURAS
+
+Felipe Casa Nova
+_______________
+
+João Silva
+_______________
+
+Se não houver participantes identificados, coloque pelo menos: Responsável Técnico e Participante.
+
 TRANSCRIÇÃO: ${transcript}`,
 
   summary: (transcript, date) => `Com base na transcrição abaixo, gere um RESUMO EXECUTIVO conciso da reunião em português.
 Data: ${date}
 Formato: 3 a 5 bullet points dos pontos mais importantes, decisões tomadas e próximas ações.
 Seja direto e objetivo. Sem asteriscos ou markdown.
+
+Ao final, inclua uma seção ASSINATURAS com traços de assinatura (_______________) para cada participante mencionado.
 
 TRANSCRIÇÃO: ${transcript}`,
 
@@ -39,12 +53,16 @@ Data: ${date}
 Para cada tópico, inclua um breve resumo do que foi discutido.
 Organize por ordem de importância. Sem asteriscos ou markdown.
 
+Ao final, inclua seção ASSINATURAS com traços (_______________) para cada participante identificado.
+
 TRANSCRIÇÃO: ${transcript}`,
 
   actions: (transcript, date) => `Com base na transcrição abaixo, gere um PLANO DE AÇÃO da reunião em português.
 Data: ${date}
 Liste apenas: O que fazer, Quem é responsável, Prazo (se mencionado).
 Formato limpo e direto. Sem asteriscos ou markdown.
+
+Ao final, inclua seção ASSINATURAS com traços (_______________) para cada responsável listado nas ações.
 
 TRANSCRIÇÃO: ${transcript}`,
 
