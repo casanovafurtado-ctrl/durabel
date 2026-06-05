@@ -111,13 +111,35 @@ export default function ChatPanel() {
     listeningRef.current = listening;
   }, [listening]);
 
+  // Sons de ativação/desativação do microfone
+  const playMicSound = (type) => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      if (type === 'on') {
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08);
+      } else {
+        osc.frequency.setValueAtTime(1100, ctx.currentTime);
+        osc.frequency.setValueAtTime(660, ctx.currentTime + 0.08);
+      }
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.2);
+    } catch {}
+  };
+
   // Para o microfone — usa stop() que é mais gracioso no iOS
   const stopMic = () => {
+    if (listeningRef.current) playMicSound('off');
     listeningRef.current = false;
     setListening(false);
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
-      // Abort como fallback após 300ms se stop() não disparar onend
       setTimeout(() => {
         try { recognitionRef.current?.abort(); } catch {}
         recognitionRef.current = null;
@@ -165,6 +187,7 @@ export default function ChatPanel() {
     recognitionRef.current = recognition;
     listeningRef.current = true;
     setListening(true);
+    playMicSound('on');
 
     try { recognition.start(); }
     catch (e) {
@@ -417,8 +440,10 @@ export default function ChatPanel() {
           {/* Send button */}
           <button
             onClick={() => {
-              if (listeningRef.current) toggleListening();
-              sendMessage();
+              // Para o mic SEMPRE — mesmo se já parou, garante liberação no iOS
+              stopMic();
+              // Pequeno delay para iOS processar o stop antes de enviar
+              setTimeout(() => sendMessage(), 100);
             }}
             disabled={!input.trim() || loading}
             className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
