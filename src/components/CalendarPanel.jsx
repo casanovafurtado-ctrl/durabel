@@ -1,9 +1,22 @@
 'use client';
 
+import BriefingModal, { matchClient, timeUntil } from './BriefingModal';
+
 import { useState, useEffect } from 'react';
 import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide-react';
 
-function EventCard({ event, onDelete, onEdit }) {
+const MEETING_KEYWORDS = ['reunião','reuniao','visita','vistoria','meeting','call','apresentação','apresentacao','inspeção','inspecao','assembleia','consulta','entrevista','workshop','treinamento','capacitação','capacitacao','laudo','perícia','pericia'];
+
+function isMeetingEvent(event) {
+  const title = (event.summary || '').toLowerCase();
+  const hasKeyword = MEETING_KEYWORDS.some(k => title.includes(k));
+  const hasDateTime = !!event.start?.dateTime; // evento com hora = provavelmente reunião
+  const hasLocation = !!event.location;
+  const hasAttendees = (event.attendees?.length || 0) > 1;
+  return hasKeyword || hasLocation || hasAttendees || hasDateTime;
+}
+
+function EventCard({ event, onDelete, onEdit, onBriefing }) {
   const [editing, setEditing] = useState(false);
   const parseDate = (dateStr) => {
     if (!dateStr) return '';
@@ -128,8 +141,15 @@ function EventCard({ event, onDelete, onEdit }) {
             </div>
             <div className="text-xs" style={{ color: 'var(--muted)' }}>{timeLabel}</div>
           </div>
+          {isMeetingEvent(event) && (
+            <button onClick={() => onBriefing && onBriefing(event)}
+              className="px-2 h-7 rounded-lg flex items-center gap-1 text-xs font-semibold ml-1"
+              style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)', fontFamily: 'Inter' }}>
+              ✨
+            </button>
+          )}
           <button onClick={() => setEditing(true)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center ml-1"
+            className="w-7 h-7 rounded-lg flex items-center justify-center"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
             <Pencil size={12} />
           </button>
@@ -153,6 +173,14 @@ function EventCard({ event, onDelete, onEdit }) {
         </div>
       )}
     </div>
+      {briefingEvent && (
+        <BriefingModal
+          event={briefingEvent}
+          clients={crmClients}
+          minutes={savedMinutes}
+          tasks={[]}
+          onClose={() => setBriefingEvent(null)} />
+      )}
   );
 }
 
@@ -262,8 +290,6 @@ export default function CalendarPanel() {
   };
 
   const deleteEvent = async (eventId) => {
-    const ev = events.find(e => e.id === eventId);
-    if (!confirm(`Excluir "${ev?.title || 'este evento'}"?`)) return;
     try {
       await fetch(`/api/calendar?eventId=${eventId}`, { method: 'DELETE' });
       setEvents(prev => prev.filter(e => e.id !== eventId));
@@ -332,7 +358,7 @@ export default function CalendarPanel() {
                 </button>
                 {showPast && past.map(e => (
                   <div key={e.id} style={{ opacity: 0.55 }}>
-                    <EventCard event={e} onDelete={deleteEvent} onEdit={editEvent} />
+                    <EventCard event={e} onDelete={deleteEvent} onEdit={editEvent} onBriefing={ev => setBriefingEvent(ev)} />
                   </div>
                 ))}
               </div>
