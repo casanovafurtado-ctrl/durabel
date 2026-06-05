@@ -81,73 +81,59 @@ export default function ChatPanel() {
     listeningRef.current = listening;
   }, [listening]);
 
-  // Speech Recognition — cria nova instância a cada uso
-  const createRecognition = () => {
-    if (typeof window === 'undefined') return null;
+  // Para o microfone — função dedicada, sempre funciona
+  const stopMic = () => {
+    try { recognitionRef.current?.abort(); } catch {}
+    try { recognitionRef.current?.stop(); } catch {}
+    recognitionRef.current = null;
+    listeningRef.current = false;
+    setListening(false);
+  };
+
+  // Inicia o microfone
+  const startMic = () => {
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (!SR) return null;
+    if (!SR) return;
+
     const recognition = new SR();
     recognition.lang = 'pt-BR';
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    return recognition;
+
+    recognition.onresult = (event) => {
+      let final = '';
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) final += event.results[i][0].transcript + ' ';
+      }
+      if (final.trim()) setInput(prev => (prev ? prev.trim() + ' ' : '') + final.trim());
+    };
+
+    recognition.onerror = (e) => {
+      if (e.error !== 'aborted') console.warn('Mic error:', e.error);
+      stopMic();
+    };
+
+    recognition.onend = () => {
+      // Só atualiza estado se ainda está "escutando" — evita conflito com stopMic
+      if (listeningRef.current) stopMic();
+    };
+
+    recognitionRef.current = recognition;
+    listeningRef.current = true;
+    setListening(true);
+
+    try { recognition.start(); }
+    catch { stopMic(); }
   };
 
   const toggleListening = () => {
-    if (listening) {
-      try { recognitionRef.current?.abort(); } catch {}
-      recognitionRef.current = null;
-      setListening(false);
-      return;
+    if (listeningRef.current) {
+      stopMic();
+    } else {
+      stopMic(); // Garante limpeza antes
+      setTimeout(startMic, 200); // Delay para iOS liberar mic
     }
-
-    // Garante que instância anterior foi destruída antes de criar nova
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
-      recognitionRef.current = null;
-    }
-
-    // Pequeno delay para iOS liberar o microfone
-    setTimeout(() => {
-      const recognition = createRecognition();
-      if (!recognition) return;
-
-      let finalTranscript = '';
-
-      recognition.onresult = (event) => {
-        finalTranscript = '';
-        for (let i = 0; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + ' ';
-          }
-        }
-        if (finalTranscript.trim()) {
-          setInput(prev => (prev ? prev.trim() + ' ' : '') + finalTranscript.trim());
-        }
-      };
-
-      recognition.onerror = (e) => {
-        if (e.error !== 'aborted') console.warn('Mic error:', e.error);
-        setListening(false);
-        recognitionRef.current = null;
-      };
-
-      recognition.onend = () => {
-        setListening(false);
-        recognitionRef.current = null;
-      };
-
-      recognitionRef.current = recognition;
-      setListening(true);
-
-      try {
-        recognition.start();
-      } catch (e) {
-        setListening(false);
-        recognitionRef.current = null;
-      }
-    }, 150); // 150ms de delay — suficiente para iOS liberar mic
   };
 
   const sendMessage = useCallback(async (text) => {
@@ -160,13 +146,8 @@ export default function ChatPanel() {
     const newMessages = [...messages, { role: 'user', content }];
     setMessages(newMessages);
 
-    // Para o microfone — usa ref para garantir valor atual (useCallback closure issue)
-    if (listeningRef.current) {
-      try { recognitionRef.current?.abort(); } catch {}
-      recognitionRef.current = null;
-      listeningRef.current = false;
-      setListening(false);
-    }
+    // Para o microfone SEMPRE ao enviar — independente do estado
+    stopMic();
 
     try {
       // Pega chave do localStorage para enviar ao servidor
