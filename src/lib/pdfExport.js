@@ -35,17 +35,7 @@ function createPrintWindow(html) {
 
   const today = new Date().toLocaleDateString('pt-BR');
 
-  const footerHtml = `
-    <div style="background:#060B18;border-top:3px solid #0077FF;padding:4mm 10mm;margin-top:12mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-      <div>
-        <div style="font-family:Arial Black,sans-serif;font-size:12px;font-weight:900;color:#fff;letter-spacing:0.05em;">DUR<span style="color:#00BBFF;">AR</span></div>
-        <div style="font-family:Arial,sans-serif;font-size:7.5px;color:rgba(255,255,255,0.5);margin-top:1px;">CONSULTORIA E ENGENHARIA &nbsp;·&nbsp; Gerado por Durabel IA Secretária</div>
-      </div>
-      <div style="text-align:right;font-family:Arial,sans-serif;font-size:7.5px;color:rgba(255,255,255,0.5);">
-        <div>${today}</div>
-        <div id="pdf-page-info">Página 1 de 1</div>
-      </div>
-    </div>`;
+
 
   const modal = document.createElement('div');
   modal.id = 'durabel-pdf-modal';
@@ -83,7 +73,6 @@ function createPrintWindow(html) {
     <div class="pv-scroll" id="pv-scroll" style="flex:1;overflow:hidden;background:#1e1e2e;display:flex;touch-action:none;position:relative;">
       <div class="pv-doc" id="pv-doc" style="background:white;width:794px;min-width:794px;transform-origin:top left;box-shadow:0 8px 40px rgba(0,0,0,0.6);position:absolute;top:0;left:0;">
         ${html}
-        ${footerHtml}
       </div>
     </div>
   `;
@@ -172,22 +161,11 @@ export function exportMinutePDF(minute) {
       <div style="height:1px;background:linear-gradient(90deg,#00BBFF,transparent);margin-top:12px;"></div>
     </div>`;
 
-  // Footer HTML — reutilizado no tfoot
-  const footerHtml = `
-    <div style="background:#060B18;border-top:3px solid #0077FF;padding:4mm 10mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-      <div>
-        <div style="font-family:Arial Black,sans-serif;font-size:11px;font-weight:900;color:#fff;">DUR<span style="color:#00BBFF;">AR</span></div>
-        <div style="font-family:Arial,sans-serif;font-size:7px;color:rgba(255,255,255,0.45);margin-top:1px;">CONSULTORIA E ENGENHARIA · Gerado por Durabel IA Secretária</div>
-      </div>
-      <div style="text-align:right;font-family:Arial,sans-serif;font-size:7px;color:rgba(255,255,255,0.45);">
-        <div>${today}</div>
-      </div>
-    </div>`;
+
 
   const html = `
-    <table style="width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;">
-      <thead><tr><td style="padding:0;">${headerHtml}</td></tr></thead>
-      <tfoot><tr><td style="padding:0;">${footerHtml}</td></tr></tfoot>
+    <table style="width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;table-layout:fixed;">
+      <thead style="display:table-header-group;"><tr><td style="padding:0;">${headerHtml}</td></tr></thead>
       <tbody>
         <tr><td style="padding:24px 36px;vertical-align:top;">
 
@@ -254,21 +232,11 @@ export function exportClientPDF(client) {
       <div style="height:1px;background:linear-gradient(90deg,#00BBFF,transparent);margin-top:12px;"></div>
     </div>`;
 
-  const footerHtml = `
-    <div style="background:#060B18;border-top:3px solid #0077FF;padding:4mm 10mm;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
-      <div>
-        <div style="font-family:Arial Black,sans-serif;font-size:11px;font-weight:900;color:#fff;">DUR<span style="color:#00BBFF;">AR</span></div>
-        <div style="font-family:Arial,sans-serif;font-size:7px;color:rgba(255,255,255,0.45);margin-top:1px;">CONSULTORIA E ENGENHARIA · Gerado por Durabel IA Secretária</div>
-      </div>
-      <div style="text-align:right;font-family:Arial,sans-serif;font-size:7px;color:rgba(255,255,255,0.45);">
-        <div>${today}</div>
-      </div>
-    </div>`;
+
 
   const html = `
-    <table style="width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;">
-      <thead><tr><td style="padding:0;">${headerHtml}</td></tr></thead>
-      <tfoot><tr><td style="padding:0;">${footerHtml}</td></tr></tfoot>
+    <table style="width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;table-layout:fixed;">
+      <thead style="display:table-header-group;"><tr><td style="padding:0;">${headerHtml}</td></tr></thead>
       <tbody><tr><td style="padding:24px 36px;vertical-align:top;">
 
         <!-- Contato -->
