@@ -71,7 +71,7 @@ export async function POST(req) {
     const accessToken = session?.access_token;
     const email = session?.user?.email;
 
-    // Lê o body primeiro para ter acesso à clientKey
+    // Lê o body primeiro para ter acesso à clientKey e dados do CRM
     const { messages, anthropicKey: clientKey, crmData } = await req.json();
 
     // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
@@ -93,46 +93,35 @@ export async function POST(req) {
     const client = new Anthropic({ apiKey: anthropicKey });
 
     // Formata dados do CRM para contexto da IA
-    const formatCRM = (data) => {
-      if (!data?.clients?.length && !data?.proposals?.length) return '';
-
-      const clients = (data.clients || []).map(c => {
+    let crmContext = '';
+    if (crmData?.clients?.length > 0) {
+      const clientList = crmData.clients.map(c => {
         const items = (c.serviceItems || []).map(s =>
-          `${s.name}${s.value ? ` (R$ ${s.value})` : ''}`
-        ).join(', ');
-        const totalValue = (c.serviceItems || []).reduce((sum, s) => {
-          const v = parseFloat(String(s.value || '').replace(/\./g,'').replace(',','.')) || 0;
-          return sum + v;
+          s.name + (s.value ? ` (R$ ${s.value})` : '')
+        ).filter(Boolean).join(', ');
+        const total = (c.serviceItems || []).reduce((sum, s) => {
+          return sum + (parseFloat(String(s.value || '').replace(/\./g, '').replace(',', '.')) || 0);
         }, 0);
         return [
-          `- ${c.name}${c.building ? ` (${c.building})` : ''}`,
-          `  Status: ${c.status}`,
-          c.phone ? `  Telefone: ${c.phone}` : '',
-          c.email ? `  Email: ${c.email}` : '',
-          c.address ? `  Endereço: ${c.address}` : '',
+          `- ${c.name}${c.building ? ` (${c.building})` : ''} | Status: ${c.status}`,
+          c.phone ? `  Tel: ${c.phone}` : '',
           items ? `  Serviços: ${items}` : '',
-          totalValue > 0 ? `  Valor total: R$ ${totalValue.toLocaleString('pt-BR', {minimumFractionDigits:2})}` : '',
+          total > 0 ? `  Valor total: R$ ${total.toLocaleString('pt-BR', {minimumFractionDigits:2})}` : '',
           c.notes ? `  Obs: ${c.notes}` : '',
         ].filter(Boolean).join('\n');
-      }).join('\n\n');
-
-      const proposals = (data.proposals || []).map(p =>
-        `- ${p.client}: ${p.service || ''} — R$ ${p.value || '0'} (${p.status})`
+      }).join('\n');
+      crmContext += `\n\nCLIENTES NO CRM (${crmData.clients.length} cadastrados):\n${clientList}`;
+    }
+    if (crmData?.proposals?.length > 0) {
+      const propList = crmData.proposals.map(p =>
+        `- ${p.client}: ${p.service || ''} R$ ${p.value || '0'} (${p.status})`
       ).join('\n');
-
-      let ctx = '';
-      if (clients) ctx += '\nCLIENTES CADASTRADOS NO CRM:\n' + clients;
-      if (proposals) ctx += '\n\nPROPOSTAS MANUAIS:\n' + proposals;
-      return ctx;
-    };
-
-    const crmContext = crmData ? formatCRM(crmData) : '';
+      crmContext += `\n\nPROPOSTAS MANUAIS:\n${propList}`;
+    }
 
     const contextMessage = {
       role: 'user',
-      content: `[Contexto: Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}. Email: ${email || 'não identificado'}.${crmContext ? `
-
-DADOS DO CRM E RESULTADOS:${crmContext}` : ''}]`,
+      content: `[Contexto: Data e hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}. Email: ${email || 'não identificado'}.${crmContext}]`,
     };
 
     const apiMessages = [
