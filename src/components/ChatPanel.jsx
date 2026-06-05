@@ -146,8 +146,7 @@ export default function ChatPanel() {
     const newMessages = [...messages, { role: 'user', content }];
     setMessages(newMessages);
 
-    // Para o microfone SEMPRE ao enviar — independente do estado
-    stopMic();
+
 
     try {
       // Pega chave do localStorage para enviar ao servidor
@@ -246,6 +245,7 @@ export default function ChatPanel() {
   const handleKey = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      stopMic();
       sendMessage();
     }
   };
@@ -358,7 +358,7 @@ export default function ChatPanel() {
 
           {/* Send button */}
           <button
-            onClick={() => sendMessage()}
+            onClick={() => { stopMic(); sendMessage(); }}
             disabled={!input.trim() || loading}
             className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
             style={{
