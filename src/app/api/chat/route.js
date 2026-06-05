@@ -113,25 +113,16 @@ export async function POST(req) {
           items ? `  Serviços: ${items}` : '',
           totalValue > 0 ? `  Valor total: R$ ${totalValue.toLocaleString('pt-BR', {minimumFractionDigits:2})}` : '',
           c.notes ? `  Obs: ${c.notes}` : '',
-        ].filter(Boolean).join('
-');
-      }).join('
-
-');
+        ].filter(Boolean).join('\n');
+      }).join('\n\n');
 
       const proposals = (data.proposals || []).map(p =>
         `- ${p.client}: ${p.service || ''} — R$ ${p.value || '0'} (${p.status})`
-      ).join('
-');
+      ).join('\n');
 
       let ctx = '';
-      if (clients) ctx += `
-CLIENTES CADASTRADOS NO CRM:
-${clients}`;
-      if (proposals) ctx += `
-
-PROPOSTAS MANUAIS:
-${proposals}`;
+      if (clients) ctx += '\nCLIENTES CADASTRADOS NO CRM:\n' + clients;
+      if (proposals) ctx += '\n\nPROPOSTAS MANUAIS:\n' + proposals;
       return ctx;
     };
 
