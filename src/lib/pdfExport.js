@@ -99,7 +99,8 @@ function createPrintWindow(html) {
         body > *:not(#durabel-pdf-modal) { display: none !important; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         @page {
-          margin: 10mm 10mm 20mm 10mm;
+          margin: 0 !important;
+          size: A4;
         }
         .pdf-running-footer {
           display: block !important;
