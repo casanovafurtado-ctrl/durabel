@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Mic, MicOff, Sparkles, Volume2, VolumeX } from 'lucide-react';
+import { Send, Mic, MicOff, Sparkles, Volume2, VolumeX, Calendar, X } from 'lucide-react';
+import BriefingModal, { fmtEventTime, matchClient, timeUntil } from './BriefingModal';
 
 // Remove markdown symbols from AI responses
 function cleanMarkdown(text) {
@@ -14,38 +15,6 @@ function cleanMarkdown(text) {
     .replace(/^[-•]\s/gm, '• ')            // - item → • item
     .replace(/^\d+\.\s/gm, (m) => m)     // 1. item → mantém
     .trim();
-}
-
-// Corrige variações do nome Durabel que o Speech Recognition inventa
-function fixDurabelName(text) {
-  const replaceAll = (str, search) => {
-    let result = ''; let last = 0;
-    const lower = str.toLowerCase();
-    const sl = search.toLowerCase();
-    let idx = lower.indexOf(sl);
-    while (idx !== -1) { result += str.slice(last, idx) + 'Durabel'; last = idx + search.length; idx = lower.indexOf(sl, last); }
-    return result + str.slice(last);
-  };
-  let t = text;
-  [
-    // Variações confirmadas pelo usuário
-    'du wrabel', 'du abel', 'du bel', 'du rabel',
-    // Outras variações fonéticas
-    'durabilidade','duravel','durável','durabél','dúravel',
-    'dorabél','dorabel','doravel','dorable','durable',
-    'dura bel','dura bell','dura bil','dura vel',
-    'du rabél','do abel','do bel','do rabel',
-    'drawable','draw abel','draw bell',
-    'durabel',
-  ].forEach(w => { t = replaceAll(t, w); });
-
-  // Abel sozinho — só como palavra completa, não dentro de outras
-  t = t.replace(/\bAbel\b/g, 'Durabel');
-  // "bel" sozinho também pode aparecer
-  t = t.replace(/\bdu bel\b/gi, 'Durabel');
-  if (t.toLowerCase().trim() === 'bel') t = 'Durabel';
-
-  return t;
 }
 
 const QUICK_ACTIONS = [
@@ -82,6 +51,14 @@ function Message({ msg }) {
         {msg.content}
       </div>
     </div>
+      {showBriefingModal && upcomingEvent && (
+        <BriefingModal
+          event={upcomingEvent}
+          clients={crmClients}
+          minutes={savedMinutes}
+          tasks={[]}
+          onClose={() => setShowBriefingModal(false)} />
+      )}
   );
 }
 
@@ -98,6 +75,11 @@ export default function ChatPanel() {
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [speaking, setSpeaking] = useState(false);
   const [voiceError, setVoiceError] = useState('');
+  const [upcomingEvent, setUpcomingEvent] = useState(null);
+  const [dismissedBanner, setDismissedBanner] = useState(false);
+  const [showBriefingModal, setShowBriefingModal] = useState(false);
+  const [crmClients, setCrmClients] = useState([]);
+  const [savedMinutes, setSavedMinutes] = useState([]);
   const audioRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -113,125 +95,121 @@ export default function ChatPanel() {
     listeningRef.current = listening;
   }, [listening]);
 
+  // Carrega próximo evento e dados CRM para o banner
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setCrmClients(JSON.parse(localStorage.getItem('durabel_clients')||'[]'));
+        setSavedMinutes(JSON.parse(localStorage.getItem('durabel_minutes')||'[]'));
+        const res = await fetch('/api/calendar');
+        if (!res.ok) return;
+        const data = await res.json();
+        const now = new Date();
+        const in24h = new Date(now.getTime() + 24 * 3600000);
+        const next = (data.events || []).find(ev => {
+          try {
+            const dt = ev.start?.dateTime ? new Date(ev.start.dateTime) : new Date(ev.start?.date);
+            const title = (ev.summary || '').toLowerCase();
+            const keywords = ['reunião','reuniao','visita','vistoria','meeting','call','apresentação','inspeção','assembleia','consulta','workshop','treinamento','laudo','perícia'];
+            const isMeeting = keywords.some(k => title.includes(k)) || !!ev.location || (ev.attendees?.length||0) > 1 || !!ev.start?.dateTime;
+            return dt >= now && dt <= in24h && isMeeting;
+          } catch { return false; }
+        });
+        if (next) setUpcomingEvent(next);
+      } catch {}
+    };
+    load();
+  }, []);
+
   // Para o microfone — função dedicada, sempre funciona
   const stopMic = () => {
+    try { recognitionRef.current?.abort(); } catch {}
+    try { recognitionRef.current?.stop(); } catch {}
+    recognitionRef.current = null;
     listeningRef.current = false;
     setListening(false);
-    const rec = recognitionRef.current;
-    recognitionRef.current = null;
-    if (rec) try { rec.stop(); } catch {}
   };
 
   // Inicia o microfone
   const startMic = () => {
-    // Não inicia se foi cancelado (ex: Enviar apertado durante o restart)
-    if (!listeningRef.current) return;
-
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
     if (!SR) return;
 
-    const rec = new SR();
-    rec.lang = 'pt-BR';
-    rec.continuous = true;
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
+    const recognition = new SR();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
 
-    rec.onresult = (e) => {
+    recognition.onresult = (event) => {
       let final = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) final += event.results[i][0].transcript + ' ';
       }
-      if (final.trim()) setInput(prev => (prev ? prev.trim() + ' ' : '') + fixDurabelName(final.trim()));
+      if (final.trim()) setInput(prev => (prev ? prev.trim() + ' ' : '') + final.trim());
     };
 
-    rec.onerror = (e) => {
-      if (e.error === 'not-allowed') {
-        setVoiceError('Permissão de microfone negada.');
-        setTimeout(() => setVoiceError(''), 3000);
-        listeningRef.current = false;
-        setListening(false);
-      }
-      recognitionRef.current = null;
-      // Reinicia se ainda ativo e não foi erro de permissão
-      if (listeningRef.current && e.error !== 'not-allowed') setTimeout(startMic, 300);
+    recognition.onerror = (e) => {
+      if (e.error !== 'aborted') console.warn('Mic error:', e.error);
+      stopMic();
     };
 
-    rec.onend = () => {
-      recognitionRef.current = null;
-      if (listeningRef.current) setTimeout(startMic, 150);
+    recognition.onend = () => {
+      // Só atualiza estado se ainda está "escutando" — evita conflito com stopMic
+      if (listeningRef.current) stopMic();
     };
 
-    recognitionRef.current = rec;
-    try { rec.start(); } catch {
-      recognitionRef.current = null;
-      listeningRef.current = false;
-      setListening(false);
-    }
+    recognitionRef.current = recognition;
+    listeningRef.current = true;
+    setListening(true);
+
+    try { recognition.start(); }
+    catch { stopMic(); }
   };
 
   const toggleListening = () => {
     if (listeningRef.current) {
       stopMic();
     } else {
-      // Marca como ativo ANTES do timeout — startMic verifica essa flag
-      listeningRef.current = true;
-      setListening(true);
-      setTimeout(startMic, 200);
+      stopMic(); // Garante limpeza antes
+      setTimeout(startMic, 200); // Delay para iOS liberar mic
     }
   };
 
   const sendMessage = useCallback(async (text) => {
-    const content = (text || input).trim();
+    const content = text || input.trim();
     if (!content || loading) return;
 
-    // Para mic inline — sem depender de closure
-    if (listeningRef.current) {
-      listeningRef.current = false;
-      setListening(false);
-      const rec = recognitionRef.current;
-      recognitionRef.current = null;
-      if (rec) try { rec.stop(); } catch {}
-    }
-
     setInput('');
-    if (inputRef.current) inputRef.current.style.height = 'auto';
     setLoading(true);
 
     const newMessages = [...messages, { role: 'user', content }];
     setMessages(newMessages);
 
+
+
     try {
+      // Pega chave do localStorage para enviar ao servidor
       const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       const anthropicKey = localSettings.anthropic_key || '';
-
-      // Envia dados do CRM para a IA ter acesso
-      const crmData = (() => {
-        try {
-          return {
-            clients: JSON.parse(localStorage.getItem('durabel_clients') || '[]'),
-            proposals: JSON.parse(localStorage.getItem('durabel_proposals') || '[]'),
-            minutes: JSON.parse(localStorage.getItem('durabel_minutes') || '[]'),
-          };
-        } catch { return {}; }
-      })();
 
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, anthropicKey, crmData }),
+        body: JSON.stringify({ messages: newMessages, anthropicKey }),
       });
       const data = await res.json();
 
       if (data.content) {
         setMessages(prev => [...prev, { role: 'assistant', content: cleanMarkdown(data.content) }]);
+        // Reproduz voz se habilitado
         if (voiceEnabled) {
           try {
             setSpeaking(true);
-            const voiceText = data.content.replace(/[*#`_~]/g, '').replace(/\s+/g, ' ').trim().slice(0, 600);
             const voiceRes = await fetch('/api/voice', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: voiceText }),
+              body: JSON.stringify({ text: data.content.slice(0, 500) }),
             });
             if (voiceRes.ok) {
               // Para áudio anterior se estiver tocando
@@ -314,6 +292,35 @@ export default function ChatPanel() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Banner de próxima reunião */}
+      {upcomingEvent && !dismissedBanner && (
+        <div className="flex-shrink-0 mx-3 mt-3 rounded-2xl overflow-hidden"
+          style={{ background: 'linear-gradient(135deg,rgba(0,85,204,0.12),rgba(0,187,255,0.06))', border: '1px solid rgba(0,119,255,0.25)' }}>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(0,119,255,0.15)' }}>
+              <Calendar size={15} style={{ color: 'var(--blue)' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold truncate" style={{ color: 'var(--text)', fontFamily: 'Syne' }}>
+                {upcomingEvent.summary || 'Reunião'}
+              </p>
+              <p className="text-xs" style={{ color: 'var(--muted)' }}>
+                {timeUntil(upcomingEvent) ? `${timeUntil(upcomingEvent)} · ` : ''}{fmtEventTime(upcomingEvent)}
+              </p>
+            </div>
+            <button onClick={() => setShowBriefingModal(true)}
+              className="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 flex-shrink-0"
+              style={{ background: 'var(--blue)', color: 'white', fontFamily: 'Inter' }}>
+              <Sparkles size={11} /> Briefing
+            </button>
+            <button onClick={() => setDismissedBanner(true)} style={{ color: 'var(--dim)', flexShrink: 0 }}>
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
         {messages.map((msg, i) => <Message key={i} msg={msg} />)}
