@@ -158,33 +158,48 @@ function createPrintWindow(html) {
       const pEl = document.getElementById('pdf-page-info');
       if (pEl) pEl.textContent = `Página 1 de ${total}`;
 
-      // Captura o documento
+      // Captura o documento — remove transform temporariamente para capturar tamanho real
+      const savedTransform = doc.style.transform;
+      const savedPosition = doc.style.position;
+      doc.style.transform = 'none';
+      doc.style.position = 'relative';
+      doc.style.top = '0';
+      doc.style.left = '0';
+
       const canvas = await window.html2canvas(doc, {
         scale: 2, useCORS: true, allowTaint: true,
         backgroundColor: '#ffffff', logging: false,
-        width: 794, windowWidth: 794,
+        scrollX: 0, scrollY: 0,
       });
+
+      // Restaura transform
+      doc.style.transform = savedTransform;
+      doc.style.position = 'absolute';
+      doc.style.top = '0';
+      doc.style.left = '0';
 
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pdfW = pdf.internal.pageSize.getWidth();   // 210mm
       const pdfH = pdf.internal.pageSize.getHeight();  // 297mm
 
-      const imgW = canvas.width;   // 794*2 = 1588px
+      const imgW = canvas.width;
       const imgH = canvas.height;
-      // quantos px de canvas cabem numa página A4
-      const pageCanvasH = Math.floor((pdfH / pdfW) * imgW);
+      // Altura em px que corresponde a uma página A4 na escala do canvas
+      const pageCanvasH = Math.round(imgW * (pdfH / pdfW));
 
       let y = 0, page = 0;
       while (y < imgH) {
         if (page > 0) pdf.addPage();
-        const h = Math.min(pageCanvasH, imgH - y);
+        const sliceH = Math.min(pageCanvasH, imgH - y);
         const slice = document.createElement('canvas');
-        slice.width = imgW; slice.height = h;
-        slice.getContext('2d').drawImage(canvas, 0, y, imgW, h, 0, 0, imgW, h);
-        const ratio = pdfH / pageCanvasH;
-        pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, h * (pdfW / imgW));
-        y += pageCanvasH; page++;
+        slice.width = imgW;
+        slice.height = sliceH;
+        slice.getContext('2d').drawImage(canvas, 0, y, imgW, sliceH, 0, 0, imgW, sliceH);
+        const imgHmm = sliceH * (pdfW / imgW);
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdfW, imgHmm);
+        y += pageCanvasH;
+        page++;
       }
 
       pdf.save(`DURAR_${today.replace(/\//g,'_')}.pdf`);
