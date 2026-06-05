@@ -41,6 +41,7 @@ function TaskItem({ task, onComplete, onDelete, onRefresh }) {
   };
 
   const handleDelete = async () => {
+    if (!confirm(`Excluir tarefa "${task.title}"?`)) return;
     await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
