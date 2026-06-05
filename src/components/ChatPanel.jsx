@@ -83,56 +83,69 @@ export default function ChatPanel() {
 
   // Para o microfone — função dedicada, sempre funciona
   const stopMic = () => {
-    try { recognitionRef.current?.abort(); } catch {}
-    try { recognitionRef.current?.stop(); } catch {}
-    recognitionRef.current = null;
     listeningRef.current = false;
     setListening(false);
+    const rec = recognitionRef.current;
+    recognitionRef.current = null;
+    if (rec) try { rec.stop(); } catch {}
   };
 
   // Inicia o microfone
   const startMic = () => {
+    // Não inicia se foi cancelado (ex: Enviar apertado durante o restart)
+    if (!listeningRef.current) return;
+
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
     if (!SR) return;
 
-    const recognition = new SR();
-    recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
+    const rec = new SR();
+    rec.lang = 'pt-BR';
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
 
-    recognition.onresult = (event) => {
+    rec.onresult = (e) => {
       let final = '';
-      for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) final += event.results[i][0].transcript + ' ';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
       }
-      if (final.trim()) setInput(prev => (prev ? prev.trim() + ' ' : '') + final.trim());
+      if (final.trim()) setInput(prev => (prev ? prev.trim() + ' ' : '') + fixDurabelName(final.trim()));
     };
 
-    recognition.onerror = (e) => {
-      if (e.error !== 'aborted') console.warn('Mic error:', e.error);
-      stopMic();
+    rec.onerror = (e) => {
+      if (e.error === 'not-allowed') {
+        setVoiceError('Permissão de microfone negada.');
+        setTimeout(() => setVoiceError(''), 3000);
+        listeningRef.current = false;
+        setListening(false);
+      }
+      recognitionRef.current = null;
+      // Reinicia se ainda ativo e não foi erro de permissão
+      if (listeningRef.current && e.error !== 'not-allowed') setTimeout(startMic, 300);
     };
 
-    recognition.onend = () => {
-      // Só atualiza estado se ainda está "escutando" — evita conflito com stopMic
-      if (listeningRef.current) stopMic();
+    rec.onend = () => {
+      recognitionRef.current = null;
+      // Reinicia automaticamente só se ainda ativo
+      if (listeningRef.current) setTimeout(startMic, 150);
     };
 
-    recognitionRef.current = recognition;
-    listeningRef.current = true;
-    setListening(true);
-
-    try { recognition.start(); }
-    catch { stopMic(); }
+    recognitionRef.current = rec;
+    try { rec.start(); } catch {
+      recognitionRef.current = null;
+      listeningRef.current = false;
+      setListening(false);
+    }
   };
 
   const toggleListening = () => {
     if (listeningRef.current) {
       stopMic();
     } else {
-      stopMic(); // Garante limpeza antes
-      setTimeout(startMic, 200); // Delay para iOS liberar mic
+      // Marca como ativo ANTES do timeout — startMic verifica essa flag
+      listeningRef.current = true;
+      setListening(true);
+      setTimeout(startMic, 200);
     }
   };
 
