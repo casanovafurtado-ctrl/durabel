@@ -416,7 +416,10 @@ export default function ChatPanel() {
 
           {/* Send button */}
           <button
-            onClick={() => { stopMic(); sendMessage(); }}
+            onClick={() => {
+              if (listeningRef.current) toggleListening();
+              sendMessage();
+            }}
             disabled={!input.trim() || loading}
             className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
             style={{
