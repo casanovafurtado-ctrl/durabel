@@ -45,11 +45,23 @@ function createPrintWindow(html) {
     <style>
       #durabel-pdf-modal * { box-sizing: border-box; }
       @media print {
+        body { background: white !important; }
         body > *:not(#durabel-pdf-modal) { display: none !important; }
         #durabel-pdf-modal { position: static !important; background: white !important; }
         .pv-bar { display: none !important; }
-        .pv-scroll { overflow: visible !important; padding: 0 !important; background: white !important; display: block !important; }
-        .pv-doc { transform: none !important; box-shadow: none !important; width: 100% !important; min-width: unset !important; position: static !important; }
+        .pv-scroll {
+          overflow: visible !important; padding: 0 !important;
+          background: white !important; display: block !important;
+          width: 100% !important; height: auto !important;
+          position: static !important; min-height: unset !important;
+        }
+        .pv-doc {
+          transform: none !important; box-shadow: none !important;
+          width: 100% !important; min-width: unset !important;
+          position: static !important; top: auto !important;
+          left: auto !important; background: white !important;
+          height: auto !important;
+        }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         @page { size: A4; margin: 8mm 8mm 8mm 8mm; }
       }
@@ -190,6 +202,38 @@ export function exportMinutePDF(minute) {
               .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight:600;color:#060B18;">$1</strong>')
               .replace(/^[-•]\s(.+)$/gm, '<div style="display:flex;gap:8px;margin:4px 0;"><span style="color:#0077FF;margin-top:2px;">▸</span><span>$1</span></div>')
             }
+          </div>
+
+          <!-- Assinaturas -->
+          <div style="margin-top:40px;padding-top:24px;border-top:1px solid #E2E8F0;">
+            <div style="font-size:9px;font-weight:700;color:#6B7280;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:28px;font-family:Arial,sans-serif;">
+              Assinaturas dos Participantes
+            </div>
+            <div style="display:flex;gap:32px;flex-wrap:wrap;">
+              ${(() => {
+                const lines = (minute.content || '').split('\n');
+                const participants = [];
+                let inPart = false;
+                for (const line of lines) {
+                  if (/participante[s]?/i.test(line)) { inPart = true; continue; }
+                  if (inPart && line.trim() === '') { inPart = false; }
+                  if (inPart && line.trim()) {
+                    const name = line.trim().split('—')[0].split('-')[0].trim();
+                    if (name.length > 2 && name.length < 60) participants.push(name);
+                  }
+                }
+                const sigs = participants.length > 0 ? participants : ['Responsável Técnico', 'Participante 1', 'Participante 2'];
+                return sigs.map(name => `
+                  <div style="flex:1;min-width:180px;margin-bottom:24px;">
+                    <div style="height:40px;"></div>
+                    <div style="border-top:1.5px solid #1A1A2E;padding-top:8px;">
+                      <div style="font-size:11px;color:#374151;font-family:Arial,sans-serif;font-weight:600;">${name}</div>
+                      <div style="font-size:9px;color:#9CA3AF;margin-top:2px;font-family:Arial,sans-serif;">Assinatura</div>
+                    </div>
+                  </div>
+                `).join('');
+              })()}
+            </div>
           </div>
 
         </td></tr>
