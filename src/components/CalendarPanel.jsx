@@ -173,14 +173,6 @@ function EventCard({ event, onDelete, onEdit, onBriefing }) {
         </div>
       )}
     </div>
-      {briefingEvent && (
-        <BriefingModal
-          event={briefingEvent}
-          clients={crmClients}
-          minutes={savedMinutes}
-          tasks={[]}
-          onClose={() => setBriefingEvent(null)} />
-      )}
   );
 }
 
@@ -377,7 +369,7 @@ export default function CalendarPanel() {
                 <p className="text-xs font-bold tracking-widest mb-2 mt-4" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
                   PRÓXIMOS · {upcoming.length}
                 </p>
-                {upcoming.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} onEdit={editEvent} />)}
+                {upcoming.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} onEdit={editEvent} onBriefing={ev => setBriefingEvent(ev)} />)}
               </>
             )}
           </>
@@ -385,6 +377,14 @@ export default function CalendarPanel() {
       </div>
 
       {showModal && <NewEventModal onClose={() => setShowModal(false)} onCreated={loadEvents} />}
+      {briefingEvent && (
+        <BriefingModal
+          event={briefingEvent}
+          clients={crmClients}
+          minutes={savedMinutes}
+          tasks={[]}
+          onClose={() => setBriefingEvent(null)} />
+      )}
     </div>
   );
 }
