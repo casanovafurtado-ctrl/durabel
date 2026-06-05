@@ -38,10 +38,10 @@ function fixDurabelName(text) {
   
   let fixed = text;
   // Primeiro trata os compostos (du abel, do abel)
-  fixed = fixed.replace(/(d[uo])\s+(abel|ável|rabél|rabel)/gi, 'DURABEL');
+  fixed = fixed.replace(/(d[uo])\s+(abel|ável|rabél|rabel)/gi, 'Durabel');
   // Depois as variações diretas
   variations.forEach(pattern => {
-    fixed = fixed.replace(pattern, 'DURABEL');
+    fixed = fixed.replace(pattern, 'Durabel');
   });
   return fixed;
 }
