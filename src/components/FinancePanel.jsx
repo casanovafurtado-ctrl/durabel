@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, DollarSign, Clock, XCircle, CheckCircle, Plus, ChevronRight, X } from 'lucide-react';
+import { TrendingUp, DollarSign, Clock, XCircle, CheckCircle, Plus, ChevronRight, X, FileBarChart } from 'lucide-react';
+import ReportGenerator from './ReportGenerator';
 import { parseCurrency } from './CRMPanel';
 
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -159,6 +160,7 @@ export default function FinancePanel() {
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState(null); // { title, items }
   const [selectedMonth, setSelectedMonth] = useState(null);
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     try { const s = localStorage.getItem('durabel_proposals'); if(s) setManualProposals(JSON.parse(s)); } catch {}
@@ -269,6 +271,11 @@ export default function FinancePanel() {
           className="btn-glow h-9 px-4 rounded-xl flex items-center gap-1.5 text-white text-sm" style={{ fontFamily: 'Inter' }}>
           <Plus size={14} /> Registrar
         </button>
+        <button onClick={() => setShowReport(true)}
+          className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-sm font-semibold"
+          style={{ background: 'rgba(0,187,255,0.1)', border: '1px solid rgba(0,187,255,0.25)', color: '#00BBFF', fontFamily: 'Inter' }}>
+          <FileBarChart size={14} /> IA
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-4">
@@ -376,6 +383,7 @@ export default function FinancePanel() {
 
       {showModal && <NewProposalModal onClose={() => setShowModal(false)} onSave={p => saveManual([{...p,id:Date.now().toString(),...p}, ...manualProposals])} />}
       {detail && <DetailModal title={detail.title} items={detail.items} onClose={() => setDetail(null)} />}
+      {showReport && <ReportGenerator allProposals={allProposals} onClose={() => setShowReport(false)} />}
       {selectedMonth !== null && (
         <DetailModal
           title={`${MONTHS[selectedMonth]} — Faturamento`}
