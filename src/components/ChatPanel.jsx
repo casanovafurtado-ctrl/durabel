@@ -113,27 +113,18 @@ export default function ChatPanel() {
 
   const startMic = useCallback(() => {
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (!SR) {
-      setVoiceError('Reconhecimento de voz não suportado neste navegador.');
-      setTimeout(() => setVoiceError(''), 3000);
-      return;
-    }
+    if (!SR) return;
 
-    // Garante que não há instância anterior
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch {}
       recognitionRef.current = null;
     }
 
     let rec;
-    try {
-      rec = new SR();
-    } catch {
-      return;
-    }
+    try { rec = new SR(); } catch { return; }
 
     rec.lang = 'pt-BR';
-    rec.continuous = true;
+    rec.continuous = false;  // false = mais estável no iOS
     rec.interimResults = false;
     rec.maxAlternatives = 1;
 
@@ -147,37 +138,31 @@ export default function ChatPanel() {
 
     rec.onerror = (e) => {
       if (e.error === 'not-allowed') {
-        setVoiceError('Permissão de microfone negada. Verifique as configurações.');
-        setTimeout(() => setVoiceError(''), 4000);
-      } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
-        console.warn('Mic:', e.error);
-      }
-      recognitionRef.current = null;
-      listeningRef.current = false;
-      setListening(false);
-    };
-
-    rec.onend = () => {
-      if (listeningRef.current) {
+        setVoiceError('Permissão de microfone negada.');
+        setTimeout(() => setVoiceError(''), 3000);
         recognitionRef.current = null;
         listeningRef.current = false;
         setListening(false);
+        return;
       }
+      // Outros erros: reinicia automaticamente se ainda ativo
+      recognitionRef.current = null;
+      if (listeningRef.current) setTimeout(startMic, 300);
+    };
+
+    rec.onend = () => {
+      recognitionRef.current = null;
+      // Reinicia automaticamente se ainda ativo (simula continuous no iOS)
+      if (listeningRef.current) setTimeout(startMic, 150);
     };
 
     recognitionRef.current = rec;
-    listeningRef.current = true;
-    setListening(true);
-
-    try {
-      rec.start();
-    } catch (err) {
-      console.warn('Mic start:', err);
+    try { rec.start(); } catch {
       recognitionRef.current = null;
       listeningRef.current = false;
       setListening(false);
     }
-  }, [stopMic]);
+  }, []);
 
   const toggleListening = useCallback(() => {
     if (listeningRef.current) {
