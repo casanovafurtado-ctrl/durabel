@@ -244,6 +244,9 @@ export default function CalendarPanel() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showPast, setShowPast] = useState(false);
+  const [briefingEvent, setBriefingEvent] = useState(null);
+  const [crmClients, setCrmClients] = useState([]);
+  const [savedMinutes, setSavedMinutes] = useState([]);
 
   const editEvent = async (eventId, form) => {
     try {
@@ -298,7 +301,11 @@ export default function CalendarPanel() {
     setLoading(false);
   };
 
-  useEffect(() => { loadEvents(); }, []);
+  useEffect(() => {
+    loadEvents();
+    try { setCrmClients(JSON.parse(localStorage.getItem('durabel_clients') || '[]')); } catch {}
+    try { setSavedMinutes(JSON.parse(localStorage.getItem('durabel_minutes') || '[]')); } catch {}
+  }, []);
 
   const now = new Date();
   const today = events.filter(e => new Date(e.start).toDateString() === now.toDateString());
