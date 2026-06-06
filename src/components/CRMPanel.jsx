@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, Building2, ChevronRight, X, Save, MessageCircle, Download, Phone, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, Building2, ChevronRight, X, Save, MessageCircle, Download, Phone, Trash2, ChevronDown, ChevronUp, Bell, Clock, CheckCheck, Sparkles } from 'lucide-react';
 import { exportClientPDF } from '@/lib/pdfExport';
 
 const STATUS_CONFIG = {
@@ -294,15 +294,6 @@ function ClientModal({ client, onClose, onSave }) {
             </div>
           </div>
 
-          {form.docType === 'CNPJ' && (
-            <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Responsável / Contato</label>
-              <input value={form.responsible} onChange={e => set('responsible', e.target.value)} placeholder="Nome do síndico ou responsável"
-                className="w-full rounded-xl px-3 py-2.5 text-sm"
-                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }} />
-            </div>
-          )}
-
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold mb-1 block" style={{ color: 'var(--muted)' }}>Telefone / WhatsApp</label>
@@ -385,7 +376,7 @@ function ClientModal({ client, onClose, onSave }) {
 }
 
 // ─── Card de Cliente ───────────────────────────────────
-function ClientCard({ client, onEdit, onExport, onWhatsApp, onDelete }) {
+function ClientCard({ client, onEdit, onExport, onWhatsApp }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[client.status] || STATUS_CONFIG.prospecto;
   const items = client.serviceItems || [];
@@ -429,12 +420,6 @@ function ClientCard({ client, onEdit, onExport, onWhatsApp, onDelete }) {
       {expanded && (
         <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--border)' }}>
           <div className="pt-3 space-y-2">
-            {client.responsible && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs w-16 font-semibold" style={{ color: 'var(--dim)' }}>Contato</span>
-                <span className="text-xs font-medium" style={{ color: 'var(--blue)' }}>{client.responsible}</span>
-              </div>
-            )}
             {client.phone && (
               <div className="flex items-center gap-2">
                 <span className="text-xs w-16 font-semibold" style={{ color: 'var(--dim)' }}>Telefone</span>
@@ -507,13 +492,103 @@ function ClientCard({ client, onEdit, onExport, onWhatsApp, onDelete }) {
                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter' }}>
                 ✏️ Editar
               </button>
-              <button onClick={() => { if (confirm(`Excluir "${client.name}"?`)) onDelete(client.id); }}
-                className="py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center"
-                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontFamily: 'Inter' }}>
-                <Trash2 size={12} />
-              </button>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ─── Helpers de Follow-up ──────────────────────────────
+function daysSince(dateStr) {
+  if (!dateStr) return 999;
+  try { return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000); } catch { return 999; }
+}
+
+function urgencyConfig(days) {
+  if (days >= 15) return { color: '#EF4444', bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.25)', label: `${days}d sem contato`, dot: '#EF4444' };
+  if (days >= 8)  return { color: '#F59E0B', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.25)', label: `${days}d sem contato`, dot: '#F59E0B' };
+  return { color: '#0077FF', bg: 'rgba(0,119,255,0.06)', border: 'rgba(0,119,255,0.2)', label: `${days}d sem contato`, dot: '#0077FF' };
+}
+
+// ─── Card de Follow-up ─────────────────────────────────
+function FollowupCard({ client, onContacted, onWhatsApp, onGenerate, generatingMsg, generatedMsg }) {
+  const days = daysSince(client.lastContact || client.createdAt);
+  const urg = urgencyConfig(days);
+  const cfg = STATUS_CONFIG[client.status] || STATUS_CONFIG.proposta;
+  const services = (client.serviceItems || []).map(s => s.name).filter(Boolean).join(', ') || client.service || '';
+  const totalValue = (client.serviceItems || []).reduce((s, i) => s + parseCurrency(i.value), 0) || parseCurrency(client.value || '');
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="rounded-2xl mb-3 overflow-hidden"
+      style={{ background: urg.bg, border: `1.5px solid ${urg.border}`, borderLeft: `4px solid ${urg.color}` }}>
+
+      {/* Header */}
+      <button className="w-full flex items-start gap-3 p-4 text-left" onClick={() => setExpanded(e => !e)}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="font-semibold text-sm" style={{ color: 'var(--text)', fontFamily: 'Syne' }}>{client.name}</span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+              style={{ background: `${urg.color}20`, color: urg.color, border: `1px solid ${urg.color}40` }}>
+              {urg.label}
+            </span>
+          </div>
+          {client.building && <p className="text-xs mb-0.5" style={{ color: 'var(--muted)' }}>🏢 {client.building}</p>}
+          {services && <p className="text-xs" style={{ color: 'var(--muted)' }}>🔧 {services.length > 45 ? services.slice(0,45)+'…' : services}</p>}
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+              style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}33` }}>
+              {cfg.label}
+            </span>
+            {totalValue > 0 && <span className="text-xs font-bold" style={{ color: '#10B981' }}>R${(totalValue/1000).toFixed(1)}k</span>}
+          </div>
+        </div>
+        <div style={{ color: 'var(--dim)', flexShrink: 0, marginTop: 2 }}>
+          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </div>
+      </button>
+
+      {/* Expandido */}
+      {expanded && (
+        <div className="px-4 pb-4" style={{ borderTop: `1px solid ${urg.border}` }}>
+
+          {/* Mensagem gerada pela IA */}
+          {generatedMsg && (
+            <div className="mt-3 rounded-xl p-3 mb-3"
+              style={{ background: 'rgba(0,119,255,0.06)', border: '1px solid rgba(0,119,255,0.2)' }}>
+              <p className="text-xs font-bold mb-2" style={{ color: 'var(--blue)' }}>✨ MENSAGEM GERADA</p>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--text)', fontFamily: 'Inter' }}>{generatedMsg}</p>
+            </div>
+          )}
+
+          {/* Ações */}
+          <div className="grid grid-cols-2 gap-2 mt-3">
+            <button
+              onClick={() => onGenerate(client)}
+              disabled={generatingMsg}
+              className="py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
+              style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.25)', color: 'var(--blue)', fontFamily: 'Inter', opacity: generatingMsg ? 0.6 : 1 }}>
+              {generatingMsg ? <span style={{ animation: 'pulse 1s infinite' }}>⏳</span> : <Sparkles size={12} />}
+              {generatingMsg ? 'Gerando...' : 'Gerar mensagem'}
+            </button>
+            {client.phone && (
+              <button
+                onClick={() => onWhatsApp(client, generatedMsg)}
+                className="py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
+                style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.25)', color: '#25D366', fontFamily: 'Inter' }}>
+                <MessageCircle size={12} /> WhatsApp
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => onContacted(client)}
+            className="w-full mt-2 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5"
+            style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#10B981', fontFamily: 'Inter' }}>
+            <CheckCheck size={13} /> Marcar como contatado
+          </button>
         </div>
       )}
     </div>
@@ -527,6 +602,10 @@ export default function CRMPanel() {
   const [filter, setFilter] = useState('todos');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [crmTab, setCrmTab] = useState('clientes'); // 'clientes' | 'followup'
+  const [followupDays, setFollowupDays] = useState(7);
+  const [generatingMsg, setGeneratingMsg] = useState(null);
+  const [generatedMsgs, setGeneratedMsgs] = useState({});
 
   useEffect(() => {
     try { const s = localStorage.getItem('durabel_clients'); if (s) setClients(JSON.parse(s)); } catch {}
@@ -537,13 +616,9 @@ export default function CRMPanel() {
     try { localStorage.setItem('durabel_clients', JSON.stringify(updated)); } catch {}
   };
 
-  const handleDelete = (id) => {
-    save(clients.filter(c => c.id !== id));
-  };
-
   const handleSave = (form) => {
     if (editing) save(clients.map(c => c.id === editing.id ? { ...form, id: editing.id } : c));
-    else save([{ ...form, id: Date.now().toString() }, ...clients]);
+    else save([{ ...form, id: Date.now().toString(), createdAt: new Date().toISOString(), lastContact: new Date().toISOString() }, ...clients]);
     setEditing(null); setShowModal(false);
   };
 
@@ -569,61 +644,176 @@ export default function CRMPanel() {
     .reduce((s, c) => s + (c.serviceItems||[]).reduce((ss,i) => ss+parseCurrency(i.value), 0) + parseCurrency(c.value||''), 0);
   const conversion = total > 0 ? Math.round((fechados/total)*100) : 0;
 
+  // Follow-up: clientes com proposta/negociação há X dias
+  const followupClients = clients
+    .filter(c => ['proposta','negociacao'].includes(c.status))
+    .map(c => ({ ...c, _days: daysSince(c.lastContact || c.createdAt) }))
+    .filter(c => c._days >= followupDays)
+    .sort((a, b) => b._days - a._days);
+
+  const handleContacted = (client) => {
+    const updated = clients.map(c => c.id === client.id
+      ? { ...c, lastContact: new Date().toISOString(), status: c.status === 'proposta' ? 'negociacao' : c.status }
+      : c);
+    save(updated);
+  };
+
+  const handleFollowupWhatsApp = (client, msg) => {
+    const text = msg || `Olá! Aqui é Felipe da DURAR Consultoria. Tudo bem? Gostaria de dar seguimento à nossa proposta de ${(client.serviceItems||[])[0]?.name || client.service || 'serviço técnico'}. Podemos conversar?`;
+    const phone = client.phone.replace(/\D/g,'');
+    window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleGenerateMsg = async (client) => {
+    setGeneratingMsg(client.id);
+    const services = (client.serviceItems||[]).map(s=>s.name).filter(Boolean).join(', ') || client.service || 'serviço técnico';
+    const days = daysSince(client.lastContact || client.createdAt);
+    const totalValue = (client.serviceItems||[]).reduce((s,i)=>s+parseCurrency(i.value),0)||parseCurrency(client.value||'');
+    try {
+      const settings = JSON.parse(localStorage.getItem('durabel_settings')||'{}');
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          anthropicKey: settings.anthropic_key || '',
+          systemOverride: `Você é Felipe Casa Nova, diretor da DURAR Consultoria e Engenharia (Recife/PE). Escreva uma mensagem de WhatsApp de follow-up profissional, calorosa e direta para retomar contato com um cliente. Máximo 4 linhas. Sem saudação formal demais. Sem asteriscos ou markdown. Apenas o texto da mensagem.`,
+          messages: [{ role: 'user', content: `Cliente: ${client.name}${client.building ? ' / ' + client.building : ''}
+Serviço proposto: ${services}
+Valor: ${totalValue > 0 ? 'R$' + totalValue.toLocaleString('pt-BR') : 'não definido'}
+Dias sem contato: ${days}
+Responsável: ${client.responsible || 'não informado'}
+
+Gere a mensagem de follow-up.` }],
+        }),
+      });
+      const data = await res.json();
+      setGeneratedMsgs(prev => ({ ...prev, [client.id]: data.content || '' }));
+    } catch {
+      setGeneratedMsgs(prev => ({ ...prev, [client.id]: `Olá! Aqui é Felipe da DURAR Consultoria. Tudo bem? Gostaria de retomar nossa conversa sobre ${services}. Podemos avançar?` }));
+    }
+    setGeneratingMsg(null);
+  };
+
   return (
     <div className="flex flex-col h-full">
-      <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+      {/* Header com abas */}
+      <div className="px-4 pt-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Clientes</h2>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>{total} cadastrados · {conversion}% conversão</p>
+            <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>
+              {crmTab === 'clientes' ? 'Clientes' : 'Follow-up'}
+            </h2>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>
+              {crmTab === 'clientes'
+                ? `${total} cadastrados · ${conversion}% conversão`
+                : `${followupClients.length} aguardando retorno`}
+            </p>
           </div>
-          <button onClick={() => { setEditing(null); setShowModal(true); }}
-            className="btn-glow h-9 px-4 rounded-xl flex items-center gap-1.5 text-white text-sm" style={{ fontFamily: 'Inter' }}>
-            <Plus size={15} /> Novo
+          {crmTab === 'clientes' && (
+            <button onClick={() => { setEditing(null); setShowModal(true); }}
+              className="btn-glow h-9 px-4 rounded-xl flex items-center gap-1.5 text-white text-sm" style={{ fontFamily: 'Inter' }}>
+              <Plus size={15} /> Novo
+            </button>
+          )}
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-3">
+          <button onClick={() => setCrmTab('clientes')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
+            style={{ background: crmTab==='clientes' ? 'var(--blue)' : 'var(--bg)', color: crmTab==='clientes' ? 'white' : 'var(--muted)', border: `1px solid ${crmTab==='clientes' ? 'var(--blue)' : 'var(--border)'}`, fontFamily: 'Inter' }}>
+            <Building2 size={12} /> Clientes
+          </button>
+          <button onClick={() => setCrmTab('followup')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold relative"
+            style={{ background: crmTab==='followup' ? '#F59E0B' : 'var(--bg)', color: crmTab==='followup' ? 'white' : 'var(--muted)', border: `1px solid ${crmTab==='followup' ? '#F59E0B' : 'var(--border)'}`, fontFamily: 'Inter' }}>
+            <Bell size={12} /> Follow-up
+            {followupClients.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center"
+                style={{ background: '#EF4444', color: 'white', fontSize: 10 }}>
+                {followupClients.length}
+              </span>
+            )}
           </button>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          {[['Total', total, 'var(--blue)'], ['Fechados', fechados, '#10B981'], ['Pipeline', pipeline > 0 ? `R$${(pipeline/1000).toFixed(0)}k` : '—', '#F59E0B']].map(([l,v,c]) => (
-            <div key={l} className="rounded-xl p-2 text-center" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
-              <div className="text-base font-bold" style={{ color: c, fontFamily: 'Syne' }}>{v}</div>
-              <div className="text-xs" style={{ color: 'var(--muted)' }}>{l}</div>
+        {/* Conteúdo condicional do header */}
+        {crmTab === 'clientes' && (
+          <>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {[['Total', total, 'var(--blue)'], ['Fechados', fechados, '#10B981'], ['Pipeline', pipeline > 0 ? `R$${(pipeline/1000).toFixed(0)}k` : '—', '#F59E0B']].map(([l,v,col]) => (
+                <div key={l} className="rounded-xl p-2 text-center" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                  <div className="text-base font-bold" style={{ color: col, fontFamily: 'Syne' }}>{v}</div>
+                  <div className="text-xs" style={{ color: 'var(--muted)' }}>{l}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+            <div className="relative mb-2">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente ou serviço..."
+                className="w-full rounded-xl pl-8 pr-4 py-2.5 text-sm"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }} />
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-3" style={{ scrollbarWidth: 'none' }}>
+              {[['todos','Todos'], ...Object.entries(STATUS_CONFIG).map(([k,v]) => [k,v.label])].map(([k,l]) => (
+                <button key={k} onClick={() => setFilter(k)}
+                  className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0"
+                  style={{ background: filter===k ? 'var(--blue)' : 'var(--bg)', color: filter===k ? 'white' : 'var(--muted)', border: `1px solid ${filter===k ? 'var(--blue)' : 'var(--border)'}`, fontFamily: 'Inter' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
-        <div className="relative mb-2">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--muted)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cliente ou serviço..."
-            className="w-full rounded-xl pl-8 pr-4 py-2.5 text-sm"
-            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }} />
-        </div>
-
-        <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-          {[['todos','Todos'], ...Object.entries(STATUS_CONFIG).map(([k,v]) => [k,v.label])].map(([k,l]) => (
-            <button key={k} onClick={() => setFilter(k)}
-              className="px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0"
-              style={{ background: filter===k ? 'var(--blue)' : 'var(--bg)', color: filter===k ? 'white' : 'var(--muted)', border: `1px solid ${filter===k ? 'var(--blue)' : 'var(--border)'}`, fontFamily: 'Inter' }}>
-              {l}
-            </button>
-          ))}
-        </div>
+        {crmTab === 'followup' && (
+          <div className="flex items-center gap-2 pb-3">
+            <Clock size={13} style={{ color: 'var(--muted)' }} />
+            <span className="text-xs" style={{ color: 'var(--muted)' }}>Alertar após</span>
+            {[3,5,7,14].map(d => (
+              <button key={d} onClick={() => setFollowupDays(d)}
+                className="px-3 py-1 rounded-full text-xs font-semibold"
+                style={{ background: followupDays===d ? '#F59E0B' : 'var(--bg)', color: followupDays===d ? 'white' : 'var(--muted)', border: `1px solid ${followupDays===d ? '#F59E0B' : 'var(--border)'}`, fontFamily: 'Inter' }}>
+                {d}d
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Lista */}
       <div className="flex-1 overflow-y-auto px-4 pt-4">
-        {filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <Building2 size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
-            <p style={{ color: 'var(--muted)', fontFamily: 'Inter' }}>{search ? 'Nenhum cliente encontrado' : 'Cadastre seu primeiro cliente'}</p>
-          </div>
+        {crmTab === 'clientes' ? (
+          filtered.length === 0 ? (
+            <div className="text-center py-16">
+              <Building2 size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
+              <p style={{ color: 'var(--muted)', fontFamily: 'Inter' }}>{search ? 'Nenhum cliente encontrado' : 'Cadastre seu primeiro cliente'}</p>
+            </div>
+          ) : (
+            filtered.map(c => (
+              <ClientCard key={c.id} client={c}
+                onEdit={c => { setEditing(c); setShowModal(true); }}
+                onExport={exportClientPDF}
+                onWhatsApp={handleWhatsApp} />
+            ))
+          )
         ) : (
-          filtered.map(c => (
-            <ClientCard key={c.id} client={c}
-              onEdit={c => { setEditing(c); setShowModal(true); }}
-              onExport={exportClientPDF}
-              onWhatsApp={handleWhatsApp}
-              onDelete={handleDelete} />
-          ))
+          followupClients.length === 0 ? (
+            <div className="text-center py-16">
+              <Bell size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
+              <p className="text-sm font-medium mb-1" style={{ color: 'var(--muted)', fontFamily: 'Inter' }}>Tudo em dia!</p>
+              <p className="text-xs" style={{ color: 'var(--dim)' }}>Nenhuma proposta há mais de {followupDays} dias sem contato</p>
+            </div>
+          ) : (
+            followupClients.map(c => (
+              <FollowupCard key={c.id} client={c}
+                onContacted={handleContacted}
+                onWhatsApp={handleFollowupWhatsApp}
+                onGenerate={handleGenerateMsg}
+                generatingMsg={generatingMsg === c.id}
+                generatedMsg={generatedMsgs[c.id]} />
+            ))
+          )
         )}
       </div>
 
