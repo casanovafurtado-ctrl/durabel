@@ -134,7 +134,7 @@ function BlockCard({ block, index, onSchedule, scheduling }) {
 function ResultView({ result, horizon, onSchedule, scheduling }) {
   const horizonLabel = HORIZONS.find(h => h.key === horizon)?.label || '';
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
 
       {/* Header */}
       <div className="rounded-2xl p-4"
@@ -224,6 +224,7 @@ export default function TimeBlockPanel({ tasks }) {
         if (res.ok) {
           const data = await res.json();
           const now = new Date();
+          const nowRecife = new Date(now.toLocaleString('en-US', { timeZone: 'America/Recife' }));
           const cutoff = new Date(now.getTime() + (horizon === 'hoje' ? 1 : horizon === 'amanha' ? 2 : 7) * 86400000);
           events = (data.events || []).filter(ev => {
             try {
@@ -245,9 +246,33 @@ export default function TimeBlockPanel({ tasks }) {
       }));
 
       const horizonLabel = HORIZONS.find(h => h.key === horizon)?.label;
+      const nowRecife2 = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Recife' }));
+      const horaAtual = nowRecife2.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const dataAtual = nowRecife2.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+      const diaSemana = nowRecife2.getDay(); // 0=dom, 6=sab
+      const isWeekend = diaSemana === 0 || diaSemana === 6;
+
+      // Pega preferências das configurações
+      const workStart = settings.pref_workstart || '08:00';
+      const workEnd = settings.pref_workend || '18:00';
+      const weekendPref = settings.pref_weekend || 'Não trabalho';
+
       const ctx = `
 HORIZONTE: ${horizonLabel}
-DATA ATUAL: ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+DATA E HORA ATUAL (fuso Recife/UTC-3): ${dataAtual} às ${horaAtual}
+DIA DA SEMANA: ${isWeekend ? 'Final de semana' : 'Dia útil'}
+
+HORÁRIO DE TRABALHO DO FELIPE:
+- Início: ${workStart}
+- Fim: ${workEnd}
+- Final de semana: ${weekendPref}
+
+REGRAS IMPORTANTES:
+1. São ${horaAtual} agora em Recife. Sugira APENAS blocos no futuro.
+2. Se horizonte "Hoje" e restam menos de 1h de expediente, avise e sugira amanhã.
+3. Respeite o horário de trabalho (${workStart}–${workEnd}).
+4. Se hoje for fim de semana: ${weekendPref === 'Não trabalho' ? 'NÃO sugira blocos hoje — Felipe não trabalha no fim de semana.' : 'Felipe ' + weekendPref.toLowerCase() + ', pode sugerir blocos.'}
+5. Use os dias da semana corretos (não invente datas passadas).
 
 TAREFAS PENDENTES (${pending.length}):
 ${pending.map(t => `- ${t.title}${t.due ? ` (prazo: ${t.due})` : ''}${t.notes ? ` — ${t.notes}` : ''}`).join('\n') || 'Nenhuma tarefa pendente'}
