@@ -7,7 +7,7 @@ import BriefingModal, { matchClient, timeUntil } from './BriefingModal';
 const MEETING_KEYWORDS = ['reunião','reuniao','visita','vistoria','meeting','call','apresentação','apresentacao','inspeção','inspecao','assembleia','consulta','entrevista','workshop','treinamento','capacitação','laudo','perícia','pericia'];
 
 function isMeetingEvent(event) {
-  const title = (event.summary || '').toLowerCase();
+  const title = (event.summary || event.title || '').toLowerCase();
   const hasKeyword = MEETING_KEYWORDS.some(k => title.includes(k));
   const hasDateTime = !!event.start?.dateTime;
   const hasLocation = !!event.location;
@@ -140,6 +140,13 @@ function EventCard({ event, onDelete, onEdit, onBriefing }) {
             </div>
             <div className="text-xs" style={{ color: 'var(--muted)' }}>{timeLabel}</div>
           </div>
+          {isMeetingEvent(event) && (
+            <button onClick={() => onBriefing && onBriefing(event)}
+              className="px-2 h-7 rounded-lg flex items-center text-xs font-semibold"
+              style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)', fontFamily: 'Inter' }}>
+              ✨
+            </button>
+          )}
           <button onClick={() => setEditing(true)}
             className="w-7 h-7 rounded-lg flex items-center justify-center ml-1"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
