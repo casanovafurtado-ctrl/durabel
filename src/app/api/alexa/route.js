@@ -1,12 +1,15 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { Redis } from '@upstash/redis';
 
-// Resposta padrão da Alexa
+function getRedis() {
+  return Redis.fromEnv();
+}
+
 function alexaResponse(text, endSession = true, reprompt = null) {
-  const ssml = `<speak>${text}</speak>`;
   return Response.json({
     version: '1.0',
     response: {
-      outputSpeech: { type: 'SSML', ssml },
+      outputSpeech: { type: 'SSML', ssml: `<speak>${text}</speak>` },
       ...(reprompt && {
         reprompt: { outputSpeech: { type: 'SSML', ssml: `<speak>${reprompt}</speak>` } }
       }),
@@ -15,15 +18,13 @@ function alexaResponse(text, endSession = true, reprompt = null) {
   });
 }
 
-// Busca dados do KV
 async function getKVData(key) {
   try {
-    const { kv } = await import('@vercel/kv');
-    return await kv.get(key);
+    const redis = getRedis();
+    return await redis.get(key);
   } catch { return null; }
 }
 
-// Busca agenda do Google (via sessão de serviço)
 async function getCalendarEvents() {
   try {
     const baseUrl = process.env.NEXTAUTH_URL || 'https://durabel-mu.vercel.app';
@@ -36,36 +37,31 @@ async function getCalendarEvents() {
   } catch { return []; }
 }
 
-// Formata hora em Recife
 function fmtHora(dtStr) {
   try {
     return new Date(dtStr).toLocaleString('pt-BR', {
-      timeZone: 'America/Recife',
-      hour: '2-digit', minute: '2-digit'
+      timeZone: 'America/Recife', hour: '2-digit', minute: '2-digit'
     });
   } catch { return ''; }
 }
 
-// Filtra eventos de hoje em Recife
 function eventosHoje(events) {
   const hoje = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Recife' });
   return events.filter(ev => {
     try {
-      const dt = ev.start?.dateTime ? new Date(ev.start.dateTime) : new Date(ev.start?.date);
-      const dia = dt.toLocaleDateString('pt-BR', { timeZone: 'America/Recife' });
-      return dia === hoje;
+      const dt = new Date(ev.start?.dateTime || ev.start?.date);
+      return dt.toLocaleDateString('pt-BR', { timeZone: 'America/Recife' }) === hoje;
     } catch { return false; }
   });
 }
 
-// Gera resposta com IA
 async function gerarRespostaIA(prompt) {
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const res = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 300,
-      system: 'Você é a DURABEL, assistente de voz da DURAR Consultoria e Engenharia. Responda de forma MUITO curta e natural para voz — máximo 2 frases. Sem listas. Sem markdown. Linguagem falada natural em português brasileiro.',
+      max_tokens: 200,
+      system: 'Você é a DURABEL, assistente de voz da DURAR Consultoria e Engenharia de Felipe Casa Nova. Responda de forma MUITO curta e natural para voz — máximo 2 frases curtas. Sem listas, sem markdown, linguagem falada em português brasileiro.',
       messages: [{ role: 'user', content: prompt }],
     });
     return res.content[0]?.text || 'Não consegui processar sua solicitação.';
@@ -79,147 +75,108 @@ export async function POST(req) {
     const body = await req.json();
     const requestType = body.request?.type;
     const intentName = body.request?.intent?.name;
-    const slots = body.request?.intent?.slots || {};
 
-    // LaunchRequest — abre a skill
+    // Launch
     if (requestType === 'LaunchRequest') {
-      const hora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife', hour: '2-digit', minute: '2-digit' });
+      const hora = new Date().toLocaleString('pt-BR', {
+        timeZone: 'America/Recife', hour: '2-digit', minute: '2-digit'
+      });
       return alexaResponse(
-        `Olá Felipe! Aqui é a DURABEL. São ${hora} em Recife. O que posso fazer por você? Pode perguntar sobre sua agenda, tarefas, clientes ou pedir um resumo do dia.`,
+        `Olá Felipe! Aqui é a DURABEL. São ${hora} em Recife. O que posso fazer por você?`,
         false,
-        'O que deseja saber? Pode perguntar sobre agenda, tarefas ou clientes.'
+        'Pode perguntar sobre agenda, tarefas, clientes ou pedir um resumo do dia.'
       );
     }
 
-    // SessionEndedRequest
     if (requestType === 'SessionEndedRequest') {
       return Response.json({ version: '1.0', response: {} });
     }
 
-    // ─── INTENTS ─────────────────────────────────────────
-
-    // Agenda de hoje
-    if (intentName === 'AgendaHojeIntent' || intentName === 'AgendaIntent') {
+    // Agenda hoje
+    if (intentName === 'AgendaHojeIntent') {
       const events = await getCalendarEvents();
       const hoje = eventosHoje(events);
-
-      if (hoje.length === 0) {
-        return alexaResponse('Sua agenda está livre hoje. Aproveite para focar nas tarefas!');
-      }
-
+      if (hoje.length === 0) return alexaResponse('Sua agenda está livre hoje. Bom dia para focar nas tarefas!');
       if (hoje.length === 1) {
-        const ev = hoje[0];
-        const hora = ev.start?.dateTime ? ` às ${fmtHora(ev.start.dateTime)}` : '';
-        return alexaResponse(`Você tem um compromisso hoje: ${ev.summary}${hora}.`);
+        const hora = hoje[0].start?.dateTime ? ` às ${fmtHora(hoje[0].start.dateTime)}` : '';
+        return alexaResponse(`Você tem um compromisso hoje: ${hoje[0].summary}${hora}.`);
       }
-
-      const lista = hoje.slice(0, 3).map(ev => {
-        const hora = ev.start?.dateTime ? ` às ${fmtHora(ev.start.dateTime)}` : '';
-        return `${ev.summary}${hora}`;
-      }).join(', ');
-
-      return alexaResponse(`Você tem ${hoje.length} compromissos hoje. Os principais são: ${lista}.`);
+      const lista = hoje.slice(0,3).map(ev => `${ev.summary}${ev.start?.dateTime ? ' às ' + fmtHora(ev.start.dateTime) : ''}`).join(', ');
+      return alexaResponse(`Você tem ${hoje.length} compromissos hoje. São eles: ${lista}.`);
     }
 
     // Próximo evento
     if (intentName === 'ProximoEventoIntent') {
       const events = await getCalendarEvents();
       const agora = new Date();
-      const proximo = events.find(ev => {
-        try {
-          const dt = new Date(ev.start?.dateTime || ev.start?.date);
-          return dt > agora;
-        } catch { return false; }
-      });
-
-      if (!proximo) return alexaResponse('Não encontrei próximos compromissos na sua agenda.');
-
+      const proximo = events.find(ev => new Date(ev.start?.dateTime || ev.start?.date) > agora);
+      if (!proximo) return alexaResponse('Não há próximos compromissos na agenda.');
       const hora = proximo.start?.dateTime ? ` às ${fmtHora(proximo.start.dateTime)}` : '';
       const dia = new Date(proximo.start?.dateTime || proximo.start?.date)
         .toLocaleDateString('pt-BR', { timeZone: 'America/Recife', weekday: 'long', day: '2-digit', month: 'long' });
-
       return alexaResponse(`Seu próximo compromisso é ${proximo.summary}, ${dia}${hora}.`);
     }
 
     // Tarefas
     if (intentName === 'TarefasIntent') {
       const tasks = await getKVData('durabel_tasks');
-      if (!tasks || tasks.length === 0) {
-        return alexaResponse('Você não tem tarefas pendentes registradas no momento.');
-      }
-      const pending = tasks.filter(t => !t.completed).slice(0, 3);
-      if (pending.length === 0) return alexaResponse('Todas as suas tarefas estão concluídas. Parabéns!');
-
-      const lista = pending.map(t => t.title).join(', ');
-      return alexaResponse(`Você tem ${pending.length} tarefas pendentes. As principais são: ${lista}.`);
+      if (!tasks?.length) return alexaResponse('Não há tarefas pendentes registradas.');
+      const pending = tasks.filter(t => !t.completed).slice(0,3);
+      if (!pending.length) return alexaResponse('Todas as tarefas estão concluídas. Parabéns!');
+      return alexaResponse(`Você tem ${pending.length} tarefas pendentes. As principais: ${pending.map(t => t.title).join(', ')}.`);
     }
 
-    // Clientes / CRM
+    // Clientes
     if (intentName === 'ClientesIntent') {
       const clients = await getKVData('durabel_clients');
-      if (!clients || clients.length === 0) {
-        return alexaResponse('Não encontrei clientes cadastrados no CRM.');
-      }
+      if (!clients?.length) return alexaResponse('Não há clientes cadastrados no CRM.');
       const fechados = clients.filter(c => c.status === 'fechado').length;
-      const propostas = clients.filter(c => ['proposta','negociacao'].includes(c.status)).length;
-      return alexaResponse(`Você tem ${clients.length} clientes cadastrados. ${fechados} contratos fechados e ${propostas} propostas em andamento.`);
+      const pipeline = clients.filter(c => ['proposta','negociacao'].includes(c.status)).length;
+      return alexaResponse(`Você tem ${clients.length} clientes cadastrados: ${fechados} fechados e ${pipeline} em negociação.`);
     }
 
     // Follow-up
     if (intentName === 'FollowupIntent') {
       const clients = await getKVData('durabel_clients');
       if (!clients) return alexaResponse('Não consegui acessar o CRM agora.');
-
-      const diasLimite = 7;
-      const agora = Date.now();
       const pendentes = clients.filter(c => {
-        if (!['proposta','negociacao'].includes(c.status)) return false;
-        const ultimo = new Date(c.lastContact || c.createdAt || 0).getTime();
-        return (agora - ultimo) / 86400000 >= diasLimite;
-      });
-
-      if (pendentes.length === 0) {
-        return alexaResponse('Nenhum cliente aguardando follow-up. Sua comunicação está em dia!');
-      }
-
-      const nomes = pendentes.slice(0, 2).map(c => c.name).join(' e ');
-      return alexaResponse(`${pendentes.length} cliente${pendentes.length > 1 ? 's precisam' : ' precisa'} de follow-up. ${nomes} ${pendentes.length > 1 ? 'estão' : 'está'} aguardando há mais de ${diasLimite} dias.`);
-    }
-
-    // Resumo do dia
-    if (intentName === 'ResumoDiaIntent') {
-      const [events, clients] = await Promise.all([
-        getCalendarEvents(),
-        getKVData('durabel_clients'),
-      ]);
-
-      const hoje = eventosHoje(events);
-      const followups = (clients || []).filter(c => {
         if (!['proposta','negociacao'].includes(c.status)) return false;
         const dias = (Date.now() - new Date(c.lastContact || c.createdAt || 0)) / 86400000;
         return dias >= 7;
       });
-
-      const prompt = `
-Felipe tem ${hoje.length} compromisso${hoje.length !== 1 ? 's' : ''} hoje${hoje.length > 0 ? ': ' + hoje.map(e => e.summary).join(', ') : ''}.
-${followups.length > 0 ? `Tem ${followups.length} cliente${followups.length > 1 ? 's' : ''} aguardando follow-up.` : 'Nenhum follow-up pendente.'}
-Dê um resumo executivo animador e prático do dia em 2 frases, sem listar itens.`;
-
-      const resposta = await gerarRespostaIA(prompt);
-      return alexaResponse(resposta);
+      if (!pendentes.length) return alexaResponse('Nenhum cliente aguardando follow-up. Comunicação em dia!');
+      const nomes = pendentes.slice(0,2).map(c => c.name).join(' e ');
+      return alexaResponse(`${pendentes.length} cliente${pendentes.length > 1 ? 's precisam' : ' precisa'} de follow-up. ${nomes} aguarda${pendentes.length > 1 ? 'm' : ''} há mais de 7 dias.`);
     }
 
-    // Intent desconhecida — usa IA genericamente
-    if (intentName && intentName !== 'AMAZON.CancelIntent' && intentName !== 'AMAZON.StopIntent') {
-      const slotValue = Object.values(slots).find(s => s.value)?.value || '';
+    // Resumo do dia
+    if (intentName === 'ResumoDiaIntent') {
+      const [events, clients] = await Promise.all([getCalendarEvents(), getKVData('durabel_clients')]);
+      const hoje = eventosHoje(events);
+      const followups = (clients || []).filter(c => {
+        if (!['proposta','negociacao'].includes(c.status)) return false;
+        return (Date.now() - new Date(c.lastContact || c.createdAt || 0)) / 86400000 >= 7;
+      });
       const resposta = await gerarRespostaIA(
-        `Felipe perguntou via Alexa: "${slotValue || intentName}". Responda brevemente sobre a DURAR Consultoria.`
+        `Felipe tem ${hoje.length} compromisso${hoje.length !== 1 ? 's' : ''} hoje${hoje.length > 0 ? ': ' + hoje.map(e => e.summary).join(', ') : ''}. ${followups.length > 0 ? `Tem ${followups.length} cliente${followups.length > 1 ? 's' : ''} aguardando follow-up.` : 'Nenhum follow-up pendente.'} Dê um resumo executivo animador em 2 frases curtas.`
       );
       return alexaResponse(resposta);
     }
 
-    // Cancel / Stop
-    return alexaResponse('Até logo, Felipe! Estou sempre aqui quando precisar.');
+    // Stop / Cancel
+    if (['AMAZON.CancelIntent','AMAZON.StopIntent'].includes(intentName)) {
+      return alexaResponse('Até logo, Felipe! Estarei aqui quando precisar.');
+    }
+
+    // Help
+    if (intentName === 'AMAZON.HelpIntent') {
+      return alexaResponse(
+        'Você pode me perguntar sobre sua agenda de hoje, próximo compromisso, tarefas pendentes, situação dos clientes, follow-ups ou pedir um resumo do dia.',
+        false, 'O que deseja saber?'
+      );
+    }
+
+    return alexaResponse('Não entendi bem. Pode repetir de outra forma?', false, 'O que deseja saber?');
 
   } catch (e) {
     console.error('Alexa error:', e);
