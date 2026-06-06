@@ -7,88 +7,85 @@
           "name": "AgendaHojeIntent",
           "slots": [],
           "samples": [
-            "minha agenda de hoje",
-            "quais são meus compromissos hoje",
-            "o que tenho na agenda hoje",
-            "tem alguma reunião hoje",
             "compromissos de hoje",
-            "agenda hoje"
+            "reuniões de hoje",
+            "o que tenho hoje",
+            "tem reunião hoje",
+            "compromissos hoje",
+            "o que está marcado hoje"
           ]
         },
         {
           "name": "AgendaSemanaIntent",
           "slots": [],
           "samples": [
-            "minha agenda da semana",
-            "agenda semana que vem",
             "compromissos da semana",
+            "reuniões da semana",
             "o que tenho essa semana",
-            "eventos da semana",
-            "quais eventos tenho",
-            "quais eventos",
-            "próximos eventos",
-            "próximos compromissos"
+            "próximos compromissos",
+            "o que está marcado essa semana",
+            "eventos dessa semana"
           ]
         },
         {
           "name": "ProximoEventoIntent",
           "slots": [],
           "samples": [
-            "qual é meu próximo compromisso",
-            "próximo evento",
             "próxima reunião",
+            "próximo compromisso",
+            "quando é minha próxima reunião",
             "o que vem depois",
-            "quando é minha próxima reunião"
+            "próximo evento marcado"
           ]
         },
         {
           "name": "TarefasIntent",
           "slots": [],
           "samples": [
-            "quais são minhas tarefas",
+            "minhas tarefas",
             "o que preciso fazer",
             "tarefas pendentes",
-            "minhas tarefas de hoje",
             "o que está pendente",
-            "minhas tarefas"
+            "lista de tarefas",
+            "tarefas de hoje"
           ]
         },
         {
           "name": "ClientesIntent",
           "slots": [],
           "samples": [
-            "quantos clientes tenho",
-            "como está o CRM",
             "situação dos clientes",
+            "quantos clientes tenho",
             "resumo do CRM",
-            "quantas propostas abertas",
-            "meus clientes",
-            "status dos clientes"
+            "como estão os clientes",
+            "status dos clientes",
+            "meus clientes do CRM",
+            "propostas abertas"
           ]
         },
         {
           "name": "FollowupIntent",
           "slots": [],
           "samples": [
-            "quem precisa de follow-up",
-            "tem algum cliente esperando retorno",
             "clientes sem contato",
-            "quem devo ligar hoje",
-            "follow up pendente",
-            "clientes aguardando"
+            "quem está esperando retorno",
+            "retorno pendente",
+            "clientes aguardando",
+            "quem precisa de retorno",
+            "clientes sem resposta"
           ]
         },
         {
           "name": "ResumoDiaIntent",
           "slots": [],
           "samples": [
-            "resumo do meu dia",
+            "resumo do dia",
             "como está meu dia",
             "me dá um resumo",
-            "como está tudo",
             "situação do dia",
             "briefing do dia",
-            "o que tenho hoje"
+            "como estão as coisas",
+            "novidades do dia"
           ]
         },
         {
