@@ -123,66 +123,65 @@ export default function ChatPanel() {
     .replace(/\bDura bel\b/gi, 'DURABEL')
     .replace(/\bAbel\b/g, 'DURABEL');
 
-  // Speech Recognition — nova instância a cada uso (mais estável no iOS)
+  // Speech Recognition
+  const startMic = () => {
+    if (!listeningRef.current) return; // cancelado antes de iniciar
+    const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+    if (!SR) return;
+    if (recognitionRef.current) { try { recognitionRef.current.abort(); } catch {} recognitionRef.current = null; }
+    const recognition = new SR();
+    recognition.lang = 'pt-BR';
+    recognition.continuous = true; // fica ativo até ser parado explicitamente
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (e) => {
+      let final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
+      }
+      if (final.trim()) setInput(prev => (prev ? prev.trim() + ' ' : '') + fixDurabelName(final.trim()));
+    };
+    recognition.onerror = (e) => {
+      if (e.error === 'not-allowed') { listeningRef.current = false; setListening(false); }
+      recognitionRef.current = null;
+      if (listeningRef.current) setTimeout(startMic, 300); // reinicia se ainda ativo
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      if (listeningRef.current) setTimeout(startMic, 150); // reinicia se ainda ativo
+    };
+    recognitionRef.current = recognition;
+    try { recognition.start(); } catch { recognitionRef.current = null; listeningRef.current = false; setListening(false); }
+  };
+
   const toggleListening = () => {
     if (listeningRef.current) {
-      try { recognitionRef.current?.abort(); } catch {}
-      recognitionRef.current = null;
+      // Para tudo
       listeningRef.current = false;
       setListening(false);
-      return;
-    }
-    if (recognitionRef.current) {
-      try { recognitionRef.current.abort(); } catch {}
+      const rec = recognitionRef.current;
       recognitionRef.current = null;
-    }
-    setTimeout(() => {
-      const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-      if (!SR) return;
-      const recognition = new SR();
-      recognition.lang = 'pt-BR';
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      let finalTranscript = '';
-      recognition.onresult = (event) => {
-        finalTranscript = '';
-        for (let i = 0; i < event.results.length; i++) {
-          if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript + ' ';
-        }
-        if (finalTranscript.trim()) {
-          setInput(prev => (prev ? prev.trim() + ' ' : '') + fixDurabelName(finalTranscript.trim()));
-        }
-      };
-      recognition.onerror = (e) => {
-        if (e.error !== 'aborted') console.warn('Mic error:', e.error);
-        listeningRef.current = false;
-        setListening(false);
-        recognitionRef.current = null;
-      };
-      recognition.onend = () => {
-        listeningRef.current = false;
-        setListening(false);
-        recognitionRef.current = null;
-      };
-      recognitionRef.current = recognition;
+      if (rec) try { rec.stop(); } catch {}
+    } else {
+      // Inicia — seta ref ANTES para startMic saber que está autorizado
       listeningRef.current = true;
       setListening(true);
-      try { recognition.start(); }
-      catch { listeningRef.current = false; setListening(false); recognitionRef.current = null; }
-    }, 150);
+      setTimeout(startMic, 200);
+    }
   };
 
   const sendMessage = useCallback(async (text) => {
     const content = text || input.trim();
     if (!content || loading) return;
 
-    // Para o mic — acessa refs diretamente para evitar stale closure
-    try { recognitionRef.current?.abort(); } catch {}
-    recognitionRef.current = null;
-    listeningRef.current = false;
-    setListening(false);
+    // Para o mic — mesma lógica do botão mic (toggleListening quando ativo)
+    if (listeningRef.current) {
+      listeningRef.current = false;
+      setListening(false);
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
+      if (rec) try { rec.stop(); } catch {}
+    }
 
     setInput('');
     setLoading(true);
@@ -214,10 +213,11 @@ export default function ChatPanel() {
         if (voiceEnabled) {
           try {
             setSpeaking(true);
+            const voiceText = data.content.replace(/[*#`_~]/g,'').replace(/\s+/g,' ').trim().slice(0,600);
             const voiceRes = await fetch('/api/voice', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: data.content.slice(0, 500) }),
+              body: JSON.stringify({ text: voiceText }),
             });
             if (voiceRes.ok) {
               // Para áudio anterior se estiver tocando
