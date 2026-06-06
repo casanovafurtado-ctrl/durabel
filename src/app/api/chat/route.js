@@ -72,6 +72,7 @@ export async function POST(req) {
     const email = session?.user?.email;
 
     // Lê o body primeiro para ter acesso à clientKey
+    // Lê o body — inclui systemOverride (relatório, time block, briefing) e crmData
     const { messages, anthropicKey: clientKey, systemOverride, crmData } = await req.json();
 
     // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
@@ -92,7 +93,8 @@ export async function POST(req) {
 
     const client = new Anthropic({ apiKey: anthropicKey });
 
-    // systemOverride — usado pelo ReportGenerator, TimeBlock, Briefing, etc.
+    // systemOverride — usado pelo Relatório, TimeBlock, Briefing, Follow-up
+    // Não usa tools nem CRM context — só chama a IA com o prompt customizado
     if (systemOverride) {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
@@ -104,13 +106,16 @@ export async function POST(req) {
       return Response.json({ content });
     }
 
-    // Contexto CRM para o chat normal
+    // Monta contexto com data/hora + CRM se disponível
     let crmContext = '';
-    if (crmData) {
-      const { clients, proposals, minutes } = crmData;
-      if (clients?.length) crmContext += `\nCLIENTES NO CRM (${clients.length}): ${clients.map(c => `${c.name}${c.building ? ' / ' + c.building : ''} — ${c.status}`).join(', ')}`;
-      if (proposals?.length) crmContext += `\nPROPOSTAS: ${proposals.length} registradas`;
-      if (minutes?.length) crmContext += `\nATAS: ${minutes.length} salvas`;
+    if (crmData?.clients?.length) {
+      crmContext += `\nCLIENTES NO CRM (${crmData.clients.length}): ${crmData.clients.slice(0,10).map(c => `${c.name}${c.building ? ' / ' + c.building : ''} — ${c.status}`).join(', ')}`;
+    }
+    if (crmData?.proposals?.length) {
+      crmContext += `\nPROPOSTAS: ${crmData.proposals.length} registradas`;
+    }
+    if (crmData?.minutes?.length) {
+      crmContext += `\nATAS SALVAS: ${crmData.minutes.length}`;
     }
 
     const contextMessage = {
