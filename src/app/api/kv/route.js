@@ -1,10 +1,10 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { Redis } from '@upstash/redis';
 
-async function getKV() {
+function getRedis() {
   try {
-    const { kv } = await import('@vercel/kv');
-    return kv;
+    return Redis.fromEnv();
   } catch {
     return null;
   }
@@ -21,10 +21,10 @@ export async function GET(req) {
       if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const kv = await getKV();
-    if (!kv) return Response.json({ error: 'KV not configured' }, { status: 503 });
+    const redis = await getRedis();
+    if (!redis) return Response.json({ error: 'Redis not configured' }, { status: 503 });
 
-    const data = await kv.get(key);
+    const data = await redis.get(key);
     return Response.json({ data });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -37,10 +37,10 @@ export async function POST(req) {
     if (!session) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { key, data } = await req.json();
-    const kv = await getKV();
-    if (!kv) return Response.json({ ok: false, reason: 'KV not configured' });
+    const redis = await getRedis();
+    if (!redis) return Response.json({ ok: false, reason: 'Redis not configured' });
 
-    await kv.set(key || 'durabel_clients', data);
+    await redis.set(key || 'durabel_clients', data);
     return Response.json({ ok: true });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
