@@ -134,7 +134,7 @@ function BlockCard({ block, index, onSchedule, scheduling }) {
 function ResultView({ result, horizon, onSchedule, scheduling }) {
   const horizonLabel = HORIZONS.find(h => h.key === horizon)?.label || '';
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
+    <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 32px)' }}>
 
       {/* Header */}
       <div className="rounded-2xl p-4"
@@ -357,7 +357,7 @@ Sem markdown. JSON puro.`,
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
 
       {/* Header */}
       <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -385,7 +385,7 @@ Sem markdown. JSON puro.`,
 
       {/* Seleção */}
       {step === 'select' && (
-        <div className="flex-1 overflow-y-auto px-5 py-5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5">
           <p className="text-xs font-bold mb-3 tracking-widest" style={{ color: 'var(--muted)', letterSpacing: '0.12em' }}>
             ESCOLHA O HORIZONTE
           </p>
