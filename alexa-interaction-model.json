@@ -7,11 +7,27 @@
           "name": "AgendaHojeIntent",
           "slots": [],
           "samples": [
+            "minha agenda de hoje",
             "quais são meus compromissos hoje",
             "o que tenho na agenda hoje",
-            "minha agenda de hoje",
             "tem alguma reunião hoje",
-            "compromissos de hoje"
+            "compromissos de hoje",
+            "agenda hoje"
+          ]
+        },
+        {
+          "name": "AgendaSemanaIntent",
+          "slots": [],
+          "samples": [
+            "minha agenda da semana",
+            "agenda semana que vem",
+            "compromissos da semana",
+            "o que tenho essa semana",
+            "eventos da semana",
+            "quais eventos tenho",
+            "quais eventos",
+            "próximos eventos",
+            "próximos compromissos"
           ]
         },
         {
@@ -21,7 +37,8 @@
             "qual é meu próximo compromisso",
             "próximo evento",
             "próxima reunião",
-            "o que vem depois"
+            "o que vem depois",
+            "quando é minha próxima reunião"
           ]
         },
         {
@@ -32,18 +49,21 @@
             "o que preciso fazer",
             "tarefas pendentes",
             "minhas tarefas de hoje",
-            "o que está pendente"
+            "o que está pendente",
+            "minhas tarefas"
           ]
         },
         {
           "name": "ClientesIntent",
           "slots": [],
           "samples": [
-            "como está o CRM",
             "quantos clientes tenho",
+            "como está o CRM",
             "situação dos clientes",
             "resumo do CRM",
-            "quantas propostas abertas"
+            "quantas propostas abertas",
+            "meus clientes",
+            "status dos clientes"
           ]
         },
         {
@@ -54,7 +74,8 @@
             "tem algum cliente esperando retorno",
             "clientes sem contato",
             "quem devo ligar hoje",
-            "follow up pendente"
+            "follow up pendente",
+            "clientes aguardando"
           ]
         },
         {
@@ -66,8 +87,13 @@
             "me dá um resumo",
             "como está tudo",
             "situação do dia",
-            "briefing do dia"
+            "briefing do dia",
+            "o que tenho hoje"
           ]
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
         },
         {
           "name": "AMAZON.HelpIntent",
