@@ -5,6 +5,21 @@ import { Send, Mic, MicOff, Sparkles, Volume2, VolumeX, Calendar, X } from 'luci
 import BriefingModal, { fmtEventTime, timeUntil } from './BriefingModal';
 
 // Remove markdown symbols from AI responses
+function fixDurabelName(text) {
+  // Corrige variações incorretas do nome DURABEL geradas pelo speech-to-text
+  return text
+    .replace(/Du\s*wrabel/gi, 'DURABEL')
+    .replace(/Du\s*abel/gi, 'DURABEL')
+    .replace(/Du\s*bel/gi, 'DURABEL')
+    .replace(/duravel/gi, 'DURABEL')
+    .replace(/durable/gi, 'DURABEL')
+    .replace(/du rabel/gi, 'DURABEL')
+    .replace(/duráble/gi, 'DURABEL')
+    .replace(/Abel/g, 'DURABEL')
+    .replace(/Dura bel/gi, 'DURABEL')
+    .replace(/Durabél/gi, 'DURABEL');
+}
+
 function cleanMarkdown(text) {
   return text
     .replace(/\*\*(.+?)\*\*/g, '$1')      // **negrito** → negrito
