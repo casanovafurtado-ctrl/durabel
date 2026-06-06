@@ -71,8 +71,8 @@ export async function POST(req) {
     const accessToken = session?.access_token;
     const email = session?.user?.email;
 
-    // Lê o body com crmData incluído
-    const { messages, anthropicKey: clientKey, crmData, systemOverride } = await req.json();
+    // Lê o body primeiro para ter acesso à clientKey
+    const { messages, anthropicKey: clientKey, systemOverride, crmData } = await req.json();
 
     // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
     let anthropicKey = clientKey || null;
@@ -92,7 +92,7 @@ export async function POST(req) {
 
     const client = new Anthropic({ apiKey: anthropicKey });
 
-    // Se vier systemOverride (ex: gerador de relatório), usa prompt simples sem tools
+    // systemOverride — usado pelo ReportGenerator, TimeBlock, Briefing, etc.
     if (systemOverride) {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-6',
@@ -104,25 +104,18 @@ export async function POST(req) {
       return Response.json({ content });
     }
 
-    // Monta contexto com dados do CRM
+    // Contexto CRM para o chat normal
     let crmContext = '';
-    if (crmData?.clients?.length > 0) {
-      const clientList = crmData.clients.map(c => {
-        const items = (c.serviceItems || []).map(s => s.name + (s.value ? ` R$${s.value}` : '')).filter(Boolean).join(', ');
-        return `- ${c.name}${c.building ? ` (${c.building})` : ''} [${c.status}]${items ? ' | ' + items : ''}${c.phone ? ' | ' + c.phone : ''}${c.notes ? ' | Obs: ' + c.notes : ''}`;
-      }).join('\n');
-      crmContext += `\n\nCLIENTES NO CRM (${crmData.clients.length}):\n${clientList}`;
-    }
-    if (crmData?.proposals?.length > 0) {
-      crmContext += `\n\nPROPOSTAS: ${crmData.proposals.map(p => `${p.client} R$${p.value || '0'} (${p.status})`).join(', ')}`;
-    }
-    if (crmData?.minutes?.length > 0) {
-      crmContext += `\n\nATAS SALVAS: ${crmData.minutes.map(m => m.title).join(', ')}`;
+    if (crmData) {
+      const { clients, proposals, minutes } = crmData;
+      if (clients?.length) crmContext += `\nCLIENTES NO CRM (${clients.length}): ${clients.map(c => `${c.name}${c.building ? ' / ' + c.building : ''} — ${c.status}`).join(', ')}`;
+      if (proposals?.length) crmContext += `\nPROPOSTAS: ${proposals.length} registradas`;
+      if (minutes?.length) crmContext += `\nATAS: ${minutes.length} salvas`;
     }
 
     const contextMessage = {
       role: 'user',
-      content: `[Data/hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}.${crmContext}]`,
+      content: `[Contexto: Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}. Email: ${email || 'não identificado'}${crmContext}]`,
     };
 
     const apiMessages = [
