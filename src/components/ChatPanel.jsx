@@ -82,12 +82,11 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Mantém ref sincronizado com state
+  // Mantém ref sincronizado com state — garante valor atual dentro de useCallback
   useEffect(() => {
     listeningRef.current = listening;
   }, [listening]);
 
-  // Carrega próximo evento de reunião para o banner
   useEffect(() => {
     const load = async () => {
       try {
@@ -113,19 +112,18 @@ export default function ChatPanel() {
     load();
   }, []);
 
-  // Speech Recognition — cria nova instância a cada uso (mais estável no iOS)
-  const createRecognition = () => {
-    if (typeof window === 'undefined') return null;
-    const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (!SR) return null;
-    const r = new SR();
-    r.lang = 'pt-BR';
-    r.continuous = false;
-    r.interimResults = true;
-    r.maxAlternatives = 1;
-    return r;
-  };
+  // fixDurabelName — corrige erros do speech-to-text com o nome DURABEL
+  const fixDurabelName = (text) => text
+    .replace(/\bDu\s*wrabel\b/gi, 'DURABEL')
+    .replace(/\bDu\s*abel\b/gi, 'DURABEL')
+    .replace(/\bDu\s*bel\b/gi, 'DURABEL')
+    .replace(/\bduravel\b/gi, 'DURABEL')
+    .replace(/\bdurable\b/gi, 'DURABEL')
+    .replace(/\bdu rabel\b/gi, 'DURABEL')
+    .replace(/\bDura bel\b/gi, 'DURABEL')
+    .replace(/\bAbel\b/g, 'DURABEL');
 
+  // Speech Recognition — nova instância a cada uso (mais estável no iOS)
   const toggleListening = () => {
     if (listeningRef.current) {
       try { recognitionRef.current?.abort(); } catch {}
@@ -134,15 +132,19 @@ export default function ChatPanel() {
       setListening(false);
       return;
     }
-    // Destrói instância anterior antes de criar nova
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch {}
       recognitionRef.current = null;
     }
-    // Delay para iOS liberar o microfone
     setTimeout(() => {
-      const recognition = createRecognition();
-      if (!recognition) return;
+      const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+      if (!SR) return;
+      const recognition = new SR();
+      recognition.lang = 'pt-BR';
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
       let finalTranscript = '';
       recognition.onresult = (event) => {
         finalTranscript = '';
@@ -176,7 +178,7 @@ export default function ChatPanel() {
     const content = text || input.trim();
     if (!content || loading) return;
 
-    // SEMPRE para o mic ao enviar — usa refs diretamente para evitar stale closure
+    // Para o mic — acessa refs diretamente para evitar stale closure
     try { recognitionRef.current?.abort(); } catch {}
     recognitionRef.current = null;
     listeningRef.current = false;
@@ -192,15 +194,12 @@ export default function ChatPanel() {
       const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       const anthropicKey = localSettings.anthropic_key || '';
 
-      // Pega dados do CRM para contexto
       let crmData = null;
       try {
         const clients = JSON.parse(localStorage.getItem('durabel_clients') || '[]');
         const proposals = JSON.parse(localStorage.getItem('durabel_proposals') || '[]');
         const minutes = JSON.parse(localStorage.getItem('durabel_minutes') || '[]');
-        if (clients.length || proposals.length || minutes.length) {
-          crmData = { clients, proposals, minutes };
-        }
+        if (clients.length || proposals.length || minutes.length) crmData = { clients, proposals, minutes };
       } catch {}
 
       const res = await fetch('/api/chat', {
@@ -212,7 +211,6 @@ export default function ChatPanel() {
 
       if (data.content) {
         setMessages(prev => [...prev, { role: 'assistant', content: cleanMarkdown(data.content) }]);
-        // Reproduz voz se habilitado
         if (voiceEnabled) {
           try {
             setSpeaking(true);
@@ -295,7 +293,6 @@ export default function ChatPanel() {
   const handleKey = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Para mic via refs diretos
       try { recognitionRef.current?.abort(); } catch {}
       recognitionRef.current = null;
       listeningRef.current = false;
@@ -306,7 +303,6 @@ export default function ChatPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Banner reunião */}
       {upcomingEvent && !dismissedBanner && (
         <div className="flex-shrink-0 mx-3 mt-3 rounded-2xl overflow-hidden"
           style={{ background: 'linear-gradient(135deg,rgba(0,85,204,0.12),rgba(0,187,255,0.06))', border: '1px solid rgba(0,119,255,0.25)' }}>
