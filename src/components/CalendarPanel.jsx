@@ -1,16 +1,15 @@
 'use client';
 
-import BriefingModal, { matchClient, timeUntil } from './BriefingModal';
-
 import { useState, useEffect } from 'react';
 import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide-react';
+import BriefingModal, { matchClient, timeUntil } from './BriefingModal';
 
-const MEETING_KEYWORDS = ['reunião','reuniao','visita','vistoria','meeting','call','apresentação','apresentacao','inspeção','inspecao','assembleia','consulta','entrevista','workshop','treinamento','capacitação','capacitacao','laudo','perícia','pericia'];
+const MEETING_KEYWORDS = ['reunião','reuniao','visita','vistoria','meeting','call','apresentação','apresentacao','inspeção','inspecao','assembleia','consulta','entrevista','workshop','treinamento','capacitação','laudo','perícia','pericia'];
 
 function isMeetingEvent(event) {
   const title = (event.summary || '').toLowerCase();
   const hasKeyword = MEETING_KEYWORDS.some(k => title.includes(k));
-  const hasDateTime = !!event.start?.dateTime; // evento com hora = provavelmente reunião
+  const hasDateTime = !!event.start?.dateTime;
   const hasLocation = !!event.location;
   const hasAttendees = (event.attendees?.length || 0) > 1;
   return hasKeyword || hasLocation || hasAttendees || hasDateTime;
@@ -141,15 +140,8 @@ function EventCard({ event, onDelete, onEdit, onBriefing }) {
             </div>
             <div className="text-xs" style={{ color: 'var(--muted)' }}>{timeLabel}</div>
           </div>
-          {isMeetingEvent(event) && (
-            <button onClick={() => onBriefing && onBriefing(event)}
-              className="px-2 h-7 rounded-lg flex items-center gap-1 text-xs font-semibold ml-1"
-              style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)', fontFamily: 'Inter' }}>
-              ✨
-            </button>
-          )}
           <button onClick={() => setEditing(true)}
-            className="w-7 h-7 rounded-lg flex items-center justify-center"
+            className="w-7 h-7 rounded-lg flex items-center justify-center ml-1"
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
             <Pencil size={12} />
           </button>
@@ -243,10 +235,10 @@ export default function CalendarPanel() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showPast, setShowPast] = useState(false);
   const [briefingEvent, setBriefingEvent] = useState(null);
   const [crmClients, setCrmClients] = useState([]);
   const [savedMinutes, setSavedMinutes] = useState([]);
+  const [showPast, setShowPast] = useState(false);
 
   const editEvent = async (eventId, form) => {
     try {
@@ -296,15 +288,28 @@ export default function CalendarPanel() {
     try {
       const res = await fetch('/api/calendar?days=30&includePast=true');
       const data = await res.json();
-      setEvents(data.events || []);
+      const evs = data.events || [];
+      setEvents(evs);
+      syncCalendarToKV(evs);
     } catch {}
     setLoading(false);
   };
 
+  // Sincroniza eventos com KV para a Alexa Skill
+  const syncCalendarToKV = async (events) => {
+    try {
+      await fetch('/api/kv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'durabel_calendar', data: events }),
+      });
+    } catch {}
+  };
+
   useEffect(() => {
     loadEvents();
-    try { setCrmClients(JSON.parse(localStorage.getItem('durabel_clients') || '[]')); } catch {}
-    try { setSavedMinutes(JSON.parse(localStorage.getItem('durabel_minutes') || '[]')); } catch {}
+    try { setCrmClients(JSON.parse(localStorage.getItem('durabel_clients')||'[]')); } catch {}
+    try { setSavedMinutes(JSON.parse(localStorage.getItem('durabel_minutes')||'[]')); } catch {}
   }, []);
 
   const now = new Date();
@@ -376,7 +381,7 @@ export default function CalendarPanel() {
                 <p className="text-xs font-bold tracking-widest mb-2 mt-4" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>
                   PRÓXIMOS · {upcoming.length}
                 </p>
-                {upcoming.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} onEdit={editEvent} onBriefing={ev => setBriefingEvent(ev)} />)}
+                {upcoming.map(e => <EventCard key={e.id} event={e} onDelete={deleteEvent} onEdit={editEvent} />)}
               </>
             )}
           </>
