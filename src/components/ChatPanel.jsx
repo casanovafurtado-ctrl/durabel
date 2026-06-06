@@ -5,21 +5,6 @@ import { Send, Mic, MicOff, Sparkles, Volume2, VolumeX, Calendar, X } from 'luci
 import BriefingModal, { fmtEventTime, timeUntil } from './BriefingModal';
 
 // Remove markdown symbols from AI responses
-function fixDurabelName(text) {
-  // Corrige variações incorretas do nome DURABEL geradas pelo speech-to-text
-  return text
-    .replace(/Du\s*wrabel/gi, 'DURABEL')
-    .replace(/Du\s*abel/gi, 'DURABEL')
-    .replace(/Du\s*bel/gi, 'DURABEL')
-    .replace(/duravel/gi, 'DURABEL')
-    .replace(/durable/gi, 'DURABEL')
-    .replace(/du rabel/gi, 'DURABEL')
-    .replace(/duráble/gi, 'DURABEL')
-    .replace(/Abel/g, 'DURABEL')
-    .replace(/Dura bel/gi, 'DURABEL')
-    .replace(/Durabél/gi, 'DURABEL');
-}
-
 function cleanMarkdown(text) {
   return text
     .replace(/\*\*(.+?)\*\*/g, '$1')      // **negrito** → negrito
@@ -97,12 +82,12 @@ export default function ChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  // Mantém ref sincronizado com state — garante valor atual dentro de useCallback
+  // Mantém ref sincronizado com state
   useEffect(() => {
     listeningRef.current = listening;
   }, [listening]);
 
-  // Carrega próximo evento de reunião e dados CRM para o banner
+  // Carrega próximo evento de reunião para o banner
   useEffect(() => {
     const load = async () => {
       try {
@@ -128,61 +113,63 @@ export default function ChatPanel() {
     load();
   }, []);
 
-  // Para o microfone — função dedicada, sempre funciona
-  const stopMic = () => {
-    try { recognitionRef.current?.abort(); } catch {}
-    try { recognitionRef.current?.stop(); } catch {}
-    recognitionRef.current = null;
-    listeningRef.current = false;
-    setListening(false);
-  };
-
-  // Inicia o microfone
-  const startMic = () => {
+  // Speech Recognition — cria nova instância a cada uso (mais estável no iOS)
+  const createRecognition = () => {
+    if (typeof window === 'undefined') return null;
     const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
-    if (!SR) return;
-
-    const recognition = new SR();
-    recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognition.onresult = (event) => {
-      let final = '';
-      for (let i = 0; i < event.results.length; i++) {
-        if (event.results[i].isFinal) final += event.results[i][0].transcript + ' ';
-      }
-      if (final.trim()) {
-        const fixed = fixDurabelName(final.trim());
-        setInput(prev => (prev ? prev.trim() + ' ' : '') + fixed);
-      }
-    };
-
-    recognition.onerror = (e) => {
-      if (e.error !== 'aborted') console.warn('Mic error:', e.error);
-      stopMic();
-    };
-
-    recognition.onend = () => {
-      if (listeningRef.current) stopMic();
-    };
-
-    recognitionRef.current = recognition;
-    listeningRef.current = true;
-    setListening(true);
-
-    try { recognition.start(); }
-    catch { stopMic(); }
+    if (!SR) return null;
+    const r = new SR();
+    r.lang = 'pt-BR';
+    r.continuous = false;
+    r.interimResults = true;
+    r.maxAlternatives = 1;
+    return r;
   };
 
   const toggleListening = () => {
     if (listeningRef.current) {
-      stopMic();
-    } else {
-      stopMic(); // Garante limpeza antes
-      setTimeout(startMic, 200); // Delay para iOS liberar mic
+      try { recognitionRef.current?.abort(); } catch {}
+      recognitionRef.current = null;
+      listeningRef.current = false;
+      setListening(false);
+      return;
     }
+    // Destrói instância anterior antes de criar nova
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch {}
+      recognitionRef.current = null;
+    }
+    // Delay para iOS liberar o microfone
+    setTimeout(() => {
+      const recognition = createRecognition();
+      if (!recognition) return;
+      let finalTranscript = '';
+      recognition.onresult = (event) => {
+        finalTranscript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript + ' ';
+        }
+        if (finalTranscript.trim()) {
+          setInput(prev => (prev ? prev.trim() + ' ' : '') + fixDurabelName(finalTranscript.trim()));
+        }
+      };
+      recognition.onerror = (e) => {
+        if (e.error !== 'aborted') console.warn('Mic error:', e.error);
+        listeningRef.current = false;
+        setListening(false);
+        recognitionRef.current = null;
+      };
+      recognition.onend = () => {
+        listeningRef.current = false;
+        setListening(false);
+        recognitionRef.current = null;
+      };
+      recognitionRef.current = recognition;
+      listeningRef.current = true;
+      setListening(true);
+      try { recognition.start(); }
+      catch { listeningRef.current = false; setListening(false); recognitionRef.current = null; }
+    }, 150);
   };
 
   const sendMessage = useCallback(async (text) => {
@@ -191,7 +178,6 @@ export default function ChatPanel() {
 
     // SEMPRE para o mic ao enviar — usa refs diretamente para evitar stale closure
     try { recognitionRef.current?.abort(); } catch {}
-    try { recognitionRef.current?.stop(); } catch {}
     recognitionRef.current = null;
     listeningRef.current = false;
     setListening(false);
@@ -202,17 +188,25 @@ export default function ChatPanel() {
     const newMessages = [...messages, { role: 'user', content }];
     setMessages(newMessages);
 
-
-
     try {
-      // Pega chave do localStorage para enviar ao servidor
       const localSettings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       const anthropicKey = localSettings.anthropic_key || '';
+
+      // Pega dados do CRM para contexto
+      let crmData = null;
+      try {
+        const clients = JSON.parse(localStorage.getItem('durabel_clients') || '[]');
+        const proposals = JSON.parse(localStorage.getItem('durabel_proposals') || '[]');
+        const minutes = JSON.parse(localStorage.getItem('durabel_minutes') || '[]');
+        if (clients.length || proposals.length || minutes.length) {
+          crmData = { clients, proposals, minutes };
+        }
+      } catch {}
 
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages, anthropicKey }),
+        body: JSON.stringify({ messages: newMessages, anthropicKey, crmData }),
       });
       const data = await res.json();
 
@@ -301,14 +295,18 @@ export default function ChatPanel() {
   const handleKey = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      stopMic();
+      // Para mic via refs diretos
+      try { recognitionRef.current?.abort(); } catch {}
+      recognitionRef.current = null;
+      listeningRef.current = false;
+      setListening(false);
       sendMessage();
     }
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Banner de próxima reunião */}
+      {/* Banner reunião */}
       {upcomingEvent && !dismissedBanner && (
         <div className="flex-shrink-0 mx-3 mt-3 rounded-2xl overflow-hidden"
           style={{ background: 'linear-gradient(135deg,rgba(0,85,204,0.12),rgba(0,187,255,0.06))', border: '1px solid rgba(0,119,255,0.25)' }}>
@@ -443,7 +441,7 @@ export default function ChatPanel() {
 
           {/* Send button */}
           <button
-            onClick={() => { stopMic(); sendMessage(); }}
+            onClick={() => { try { recognitionRef.current?.abort(); } catch {}; recognitionRef.current = null; listeningRef.current = false; setListening(false); sendMessage(); }}
             disabled={!input.trim() || loading}
             className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
             style={{
