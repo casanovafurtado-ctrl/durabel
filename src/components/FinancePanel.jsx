@@ -348,14 +348,32 @@ export default function FinancePanel() {
             </div>
             {allProposals.slice(0,25).map(p => {
               const color = p.status === 'fechada' ? '#10B981' : p.status === 'perdida' ? '#EF4444' : '#F59E0B';
+              const services = p.serviceItems?.filter(i => i.name) || [];
               return (
-                <div key={p.id} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+                <div key={p.id} className="flex items-start gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                  <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: color }} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: 'var(--text)', fontFamily: 'Inter' }}>{p.client}</p>
-                    {p.serviceLabel && <p className="text-xs truncate" style={{ color: 'var(--muted)' }}>{p.serviceLabel.length > 50 ? p.serviceLabel.slice(0,50)+'…' : p.serviceLabel}</p>}
+                    <p className="text-sm font-semibold" style={{ color: 'var(--text)', fontFamily: 'Inter' }}>{p.client}</p>
+                    {services.length > 0 ? (
+                      <div className="mt-1 space-y-0.5">
+                        {services.map((s, i) => (
+                          <div key={i} className="flex items-center justify-between gap-2">
+                            <span className="text-xs" style={{ color: 'var(--muted)', fontFamily: 'Inter' }}>
+                              ▸ {s.name}
+                            </span>
+                            {parseCurrency(s.value) > 0 && (
+                              <span className="text-xs font-medium flex-shrink-0" style={{ color: 'var(--dim)' }}>
+                                {fmtShort(parseCurrency(s.value))}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : p.serviceLabel ? (
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>▸ {p.serviceLabel}</p>
+                    ) : null}
                   </div>
-                  <span className="text-xs font-bold flex-shrink-0" style={{ color, fontFamily: 'Syne' }}>
+                  <span className="text-sm font-bold flex-shrink-0 mt-0.5" style={{ color, fontFamily: 'Syne' }}>
                     {p.value > 0 ? fmtShort(p.value) : '—'}
                   </span>
                 </div>
