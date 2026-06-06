@@ -51,14 +51,6 @@ function Message({ msg }) {
         {msg.content}
       </div>
     </div>
-      {showBriefingModal && upcomingEvent && (
-        <BriefingModal
-          event={upcomingEvent}
-          clients={crmClients}
-          minutes={savedMinutes}
-          tasks={[]}
-          onClose={() => setShowBriefingModal(false)} />
-      )}
   );
 }
 
@@ -448,6 +440,15 @@ export default function ChatPanel() {
           </button>
         </div>
       </div>
+
+      {showBriefingModal && upcomingEvent && (
+        <BriefingModal
+          event={upcomingEvent}
+          clients={crmClients}
+          minutes={savedMinutes}
+          tasks={[]}
+          onClose={() => setShowBriefingModal(false)} />
+      )}
     </div>
   );
 }
