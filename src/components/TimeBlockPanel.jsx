@@ -245,14 +245,16 @@ export default function TimeBlockPanel({ tasks }) {
         notes: t.notes || '',
       }));
 
+      // Lê configurações ANTES de usar
+      const settings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
+
       const horizonLabel = HORIZONS.find(h => h.key === horizon)?.label;
       const nowRecife2 = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Recife' }));
       const horaAtual = nowRecife2.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       const dataAtual = nowRecife2.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-      const diaSemana = nowRecife2.getDay(); // 0=dom, 6=sab
+      const diaSemana = nowRecife2.getDay();
       const isWeekend = diaSemana === 0 || diaSemana === 6;
 
-      // Pega preferências das configurações
       const workStart = settings.pref_workstart || '08:00';
       const workEnd = settings.pref_workend || '18:00';
       const weekendPref = settings.pref_weekend || 'Não trabalho';
@@ -281,7 +283,6 @@ COMPROMISSOS JÁ AGENDADOS (${events.length}):
 ${events.map(e => `- ${e.title}: ${e.start}${e.end ? ` até ${e.end}` : ''}`).join('\n') || 'Agenda livre'}
 `;
 
-      const settings = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
