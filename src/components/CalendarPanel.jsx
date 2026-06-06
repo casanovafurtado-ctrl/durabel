@@ -4,15 +4,14 @@ import { useState, useEffect } from 'react';
 import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide-react';
 import BriefingModal, { matchClient, timeUntil } from './BriefingModal';
 
-const MEETING_KEYWORDS = ['reunião','reuniao','visita','vistoria','meeting','call','apresentação','apresentacao','inspeção','inspecao','assembleia','consulta','entrevista','workshop','treinamento','capacitação','laudo','perícia','pericia'];
+const MEETING_KEYWORDS = ['reunião','reuniao','meeting','call','apresentação','apresentacao','assembleia','consulta','entrevista','workshop','treinamento','capacitação','capacitacao','perícia','pericia'];
 
 function isMeetingEvent(event) {
   const title = (event.summary || event.title || '').toLowerCase();
   const hasKeyword = MEETING_KEYWORDS.some(k => title.includes(k));
-  const hasDateTime = !!event.start?.dateTime;
   const hasLocation = !!event.location;
   const hasAttendees = (event.attendees?.length || 0) > 1;
-  return hasKeyword || hasLocation || hasAttendees || hasDateTime;
+  return hasKeyword || hasLocation || hasAttendees;
 }
 
 function EventCard({ event, onDelete, onEdit, onBriefing }) {
