@@ -71,9 +71,8 @@ export async function POST(req) {
     const accessToken = session?.access_token;
     const email = session?.user?.email;
 
-    // Lê o body primeiro para ter acesso à clientKey
-    // Lê o body — inclui systemOverride (relatório, time block, briefing) e crmData
-    const { messages, anthropicKey: clientKey, systemOverride, crmData } = await req.json();
+    // Lê o body com crmData incluído
+    const { messages, anthropicKey: clientKey, crmData } = await req.json();
 
     // Pega chave Anthropic — prioridade: enviada pelo cliente (localStorage) > servidor > env dev
     let anthropicKey = clientKey || null;
@@ -93,34 +92,25 @@ export async function POST(req) {
 
     const client = new Anthropic({ apiKey: anthropicKey });
 
-    // systemOverride — usado pelo Relatório, TimeBlock, Briefing, Follow-up
-    // Não usa tools nem CRM context — só chama a IA com o prompt customizado
-    if (systemOverride) {
-      const response = await client.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 2048,
-        system: systemOverride,
-        messages: messages.map(m => ({ role: m.role, content: m.content })),
-      });
-      const content = response.content.find(b => b.type === 'text')?.text || '';
-      return Response.json({ content });
-    }
-
-    // Monta contexto com data/hora + CRM se disponível
+    // Monta contexto com dados do CRM
     let crmContext = '';
     if (crmData?.clients?.length) {
-      crmContext += `\nCLIENTES NO CRM (${crmData.clients.length}): ${crmData.clients.slice(0,10).map(c => `${c.name}${c.building ? ' / ' + c.building : ''} — ${c.status}`).join(', ')}`;
+      crmContext += `\n\nCLIENTES CRM (${crmData.clients.length}):\n` + crmData.clients.map(c => {
+        const items = (c.serviceItems||[]).map(s => `${s.name}${s.value ? ' R$'+s.value : ''}`).join(', ');
+        const total = (c.serviceItems||[]).reduce((sum,s) => sum+(parseFloat(String(s.value||'').replace(/\./g,'').replace(',','.'))||0),0);
+        return `- ${c.name}${c.building?' ('+c.building+')':''} [${c.status}]${items?' | '+items:''}${total>0?' | Total: R$'+total.toLocaleString('pt-BR',{minimumFractionDigits:2}):''}${c.phone?' | '+c.phone:''}${c.notes?' | Obs: '+c.notes:''}`;
+      }).join('\n');
     }
     if (crmData?.proposals?.length) {
-      crmContext += `\nPROPOSTAS: ${crmData.proposals.length} registradas`;
+      crmContext += `\n\nPROPOSTAS MANUAIS:\n` + crmData.proposals.map(p=>`- ${p.client}: ${p.service||''} R$${p.value||'0'} (${p.status})`).join('\n');
     }
     if (crmData?.minutes?.length) {
-      crmContext += `\nATAS SALVAS: ${crmData.minutes.length}`;
+      crmContext += `\n\nATAS SALVAS: ${crmData.minutes.map(m=>m.title).join(', ')}`;
     }
 
     const contextMessage = {
       role: 'user',
-      content: `[Contexto: Data e hora atual: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}. Email: ${email || 'não identificado'}${crmContext}]`,
+      content: `[Data/hora: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Recife' })}. Usuário: ${session?.user?.name || 'Felipe'}.${crmContext}]`,
     };
 
     const apiMessages = [
