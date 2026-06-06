@@ -78,6 +78,7 @@ const PREF_SECTIONS = [
     fields: [
       { key: 'pref_workstart', label: 'Início do expediente', placeholder: '08:00', type: 'time' },
       { key: 'pref_workend', label: 'Fim do expediente', placeholder: '18:00', type: 'time' },
+      { key: 'pref_weekend', label: 'Trabalha no fim de semana?', type: 'select', options: ['Não trabalho', 'Trabalho sábado', 'Trabalho sábado e domingo', 'Depende da semana'] },
       { key: 'pref_focustime', label: 'Melhor horário para foco', placeholder: 'Manhã (08h-12h)', type: 'select',
         options: ['Manhã (06h-12h)', 'Tarde (12h-18h)', 'Noite (18h-23h)', 'Madrugada (23h-06h)', 'Variável'] },
       { key: 'pref_meetingdays', label: 'Dias preferidos para reunião', placeholder: 'Segunda, Quarta', type: 'text' },
