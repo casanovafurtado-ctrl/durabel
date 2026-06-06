@@ -112,16 +112,31 @@ export default function ChatPanel() {
     load();
   }, []);
 
-  // fixDurabelName — corrige erros do speech-to-text com o nome DURABEL
-  const fixDurabelName = (text) => text
-    .replace(/\bDu\s*wrabel\b/gi, 'DURABEL')
-    .replace(/\bDu\s*abel\b/gi, 'DURABEL')
-    .replace(/\bDu\s*bel\b/gi, 'DURABEL')
-    .replace(/\bduravel\b/gi, 'DURABEL')
-    .replace(/\bdurable\b/gi, 'DURABEL')
-    .replace(/\bdu rabel\b/gi, 'DURABEL')
-    .replace(/\bDura bel\b/gi, 'DURABEL')
-    .replace(/\bAbel\b/g, 'DURABEL');
+  // fixDurabelName — corrige erros do speech-to-text com o nome Durabel
+  const fixDurabelName = (text) => {
+    const rep = (str, search) => {
+      const idx = str.toLowerCase().indexOf(search.toLowerCase());
+      if (idx === -1) return str;
+      return rep(str.slice(0, idx) + 'Durabel' + str.slice(idx + search.length), search);
+    };
+    let t = text;
+    // Variações confirmadas pelo usuário + fonéticas
+    ['du wrabel','du abel','du bel','du rabel','du rabél',
+     'do abel','do bel','do rabel','do rabél',
+     'dura bel','dura bell','dura bil','dura vel',
+     'duravel','durável','durabél','dúravel','durable',
+     'dorabél','dorabel','doravel','dorable',
+     'drawable','draw abel','durabilidade',
+    ].forEach(w => { t = rep(t, w); });
+    // Abel sozinho — word boundary
+    t = t.replace(/\bAbel\b/g, 'Durabel');
+    t = t.replace(/\babel\b/gi, (m, offset, str) => {
+      // Só substitui "bel" se estiver sozinho, não dentro de outra palavra
+      const before = str[offset - 1] || ' ';
+      return /\s/.test(before) ? 'Durabel' : m;
+    });
+    return t;
+  };
 
   // Speech Recognition
   const startMic = () => {
