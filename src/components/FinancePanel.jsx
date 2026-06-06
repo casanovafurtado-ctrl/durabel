@@ -169,6 +169,12 @@ export default function FinancePanel() {
   const saveManual = (updated) => {
     setManualProposals(updated);
     try { localStorage.setItem('durabel_proposals', JSON.stringify(updated)); } catch {}
+    // Sync com KV para a Alexa
+    fetch('/api/kv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'durabel_proposals', data: updated }),
+    }).catch(() => {});
   };
 
   // Um cliente = uma proposta com valor total dos serviços
