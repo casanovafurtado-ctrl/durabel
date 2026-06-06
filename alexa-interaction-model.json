@@ -1,0 +1,87 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "durabel",
+      "intents": [
+        {
+          "name": "AgendaHojeIntent",
+          "slots": [],
+          "samples": [
+            "quais são meus compromissos hoje",
+            "o que tenho na agenda hoje",
+            "minha agenda de hoje",
+            "tem alguma reunião hoje",
+            "compromissos de hoje"
+          ]
+        },
+        {
+          "name": "ProximoEventoIntent",
+          "slots": [],
+          "samples": [
+            "qual é meu próximo compromisso",
+            "próximo evento",
+            "próxima reunião",
+            "o que vem depois"
+          ]
+        },
+        {
+          "name": "TarefasIntent",
+          "slots": [],
+          "samples": [
+            "quais são minhas tarefas",
+            "o que preciso fazer",
+            "tarefas pendentes",
+            "minhas tarefas de hoje",
+            "o que está pendente"
+          ]
+        },
+        {
+          "name": "ClientesIntent",
+          "slots": [],
+          "samples": [
+            "como está o CRM",
+            "quantos clientes tenho",
+            "situação dos clientes",
+            "resumo do CRM",
+            "quantas propostas abertas"
+          ]
+        },
+        {
+          "name": "FollowupIntent",
+          "slots": [],
+          "samples": [
+            "quem precisa de follow-up",
+            "tem algum cliente esperando retorno",
+            "clientes sem contato",
+            "quem devo ligar hoje",
+            "follow up pendente"
+          ]
+        },
+        {
+          "name": "ResumoDiaIntent",
+          "slots": [],
+          "samples": [
+            "resumo do meu dia",
+            "como está meu dia",
+            "me dá um resumo",
+            "como está tudo",
+            "situação do dia",
+            "briefing do dia"
+          ]
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        }
+      ]
+    }
+  }
+}
