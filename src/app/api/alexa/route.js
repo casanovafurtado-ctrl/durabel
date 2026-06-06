@@ -121,7 +121,7 @@ export async function POST(req) {
           } else {
             climaFrase = `${temp} graus em ${cidade} agora.`;
           }
-          if (uv >= 8 && hora >= 10 && hora <= 15) climaFrase += ' UV altíssimo, coloca boné se for a campo!';
+          if (uv >= 8 && hora >= 10 && hora <= 15) climaFrase += ' Índice ultravioleta altíssimo, use protetor se for a campo!';
         }
       } catch {}
 
