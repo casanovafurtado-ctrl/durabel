@@ -265,8 +265,15 @@ export default function TasksPanel() {
       ]);
       const pendingData = await pendingRes.json();
       const completedData = await completedRes.json();
-      setTasks(pendingData.tasks || []);
+      const pendingTasks = pendingData.tasks || [];
+      setTasks(pendingTasks);
       setCompletedTasks(completedData.tasks || []);
+      // Sincroniza com KV para a Alexa
+      fetch('/api/kv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'durabel_tasks', data: pendingTasks }),
+      }).catch(() => {});
     } catch {}
     setLoading(false);
   };
