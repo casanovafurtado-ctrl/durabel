@@ -15,13 +15,12 @@ import SplashScreen from '@/components/SplashScreen';
 import Image from 'next/image';
 
 const TABS = [
-  { id: 'chat', label: 'DURABEL', icon: MessageSquare },
-  { id: 'calendar', label: 'Agenda', icon: Calendar },
-  { id: 'tasks', label: 'Tarefas', icon: CheckSquare },
-  { id: 'crm', label: 'Clientes', icon: Users },
-  { id: 'finance', label: 'Resultados', icon: TrendingUp },
-  { id: 'minutes', label: 'Minutas', icon: FileText },
-  { id: 'settings', label: 'Config', icon: Settings },
+  { id: 'chat',     label: 'DURABEL',   icon: MessageSquare },
+  { id: 'calendar', label: 'Agenda',    icon: Calendar },
+  { id: 'tasks',    label: 'Tarefas',   icon: CheckSquare },
+  { id: 'crm',      label: 'Clientes',  icon: Users },
+  { id: 'finance',  label: 'Resultados',icon: TrendingUp },
+  { id: 'minutes',  label: 'Minutas',   icon: FileText },
 ];
 
 export default function Dashboard() {
@@ -29,18 +28,10 @@ export default function Dashboard() {
   const router = useRouter();
   const [tab, setTab] = useState('chat');
   const [showSplash, setShowSplash] = useState(true);
-  const [time, setTime] = useState('');
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/');
   }, [status, router]);
-
-  useEffect(() => {
-    const update = () => setTime(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-    update();
-    const t = setInterval(update, 30000);
-    return () => clearInterval(t);
-  }, []);
 
   if (status === 'loading') {
     return (
@@ -96,9 +87,11 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="text-sm font-medium" style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
-              {time}
-            </div>
+            <button onClick={() => setTab('settings')}
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ background: tab === 'settings' ? 'rgba(0,119,255,0.1)' : 'var(--bg)', border: `1px solid ${tab === 'settings' ? 'var(--blue)' : 'var(--border)'}`, color: tab === 'settings' ? 'var(--blue)' : 'var(--dim)' }}>
+              <Settings size={15} />
+            </button>
             <button onClick={() => signOut({ callbackUrl: '/' })}
               className="w-9 h-9 rounded-xl flex items-center justify-center"
               style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--dim)' }}>
@@ -115,8 +108,7 @@ export default function Dashboard() {
           {tab === 'crm' && <CRMPanel />}
           {tab === 'finance' && <FinancePanel />}
           {tab === 'minutes' && <MinutesPanel />}
-          {tab === 'settings' && <SettingsPanel />}
-        </div>
+          {tab === 'settings' && <SettingsPanel />}        </div>
 
         {/* Bottom Tab Bar */}
         <div className="flex flex-shrink-0 overflow-x-auto"
