@@ -5,19 +5,16 @@ function getRedis() {
   try { return Redis.fromEnv(); } catch { return null; }
 }
 
-function alexaResponse(text, endSession = true, reprompt = null) {
+function alexaResponse(text, endSession = false, reprompt = null) {
+  const followUp = reprompt || 'Posso ajudar com mais alguma coisa?';
   const body = {
     version: '1.0',
     response: {
       outputSpeech: { type: 'SSML', ssml: `<speak>${text}</speak>` },
+      reprompt: { outputSpeech: { type: 'SSML', ssml: `<speak>${followUp}</speak>` } },
       shouldEndSession: endSession,
     },
   };
-  if (reprompt) {
-    body.response.reprompt = {
-      outputSpeech: { type: 'SSML', ssml: `<speak>${reprompt}</speak>` }
-    };
-  }
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
@@ -135,7 +132,7 @@ export async function POST(req) {
     }
 
     if (['AMAZON.CancelIntent','AMAZON.StopIntent'].includes(intentName)) {
-      return alexaResponse('Até logo, Felipe! Estarei aqui quando precisar.');
+      return alexaResponse('Até logo, Felipe! Estarei aqui quando precisar.', true);
     }
 
     return alexaResponse('Não entendi. Pode repetir de outra forma?', false, 'O que deseja saber?');
