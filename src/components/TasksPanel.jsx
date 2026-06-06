@@ -381,9 +381,10 @@ export default function TasksPanel() {
         )}
       </div>
 
-      {showModal && <NewTaskModal onClose={() => setShowModal(false)} onCreated={loadTasks} />}
       </div>
       )}
+
+      {showModal && <NewTaskModal onClose={() => setShowModal(false)} onCreated={loadTasks} />}
     </div>
   );
 }
