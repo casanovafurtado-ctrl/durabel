@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, CalendarPlus } from 'lucide-react';
+import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, CalendarPlus, Clock } from 'lucide-react';
+import TimeBlockPanel from './TimeBlockPanel';
 
 function TaskItem({ task, onComplete, onDelete, onRefresh }) {
   const [done, setDone] = useState(false);
@@ -41,7 +42,6 @@ function TaskItem({ task, onComplete, onDelete, onRefresh }) {
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Excluir tarefa "${task.title}"?`)) return;
     await fetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -254,6 +254,7 @@ export default function TasksPanel() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [tasksTab, setTasksTab] = useState('tarefas');
 
   const loadTasks = async () => {
     setLoading(true);
@@ -276,27 +277,49 @@ export default function TasksPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: '1px solid var(--border)' }}>
-        <div>
-          <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Tarefas</h2>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>
-            {tasks.length} pendente{tasks.length !== 1 ? 's' : ''}
-          </p>
+      <div className="px-4 pt-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>
+              {tasksTab === 'tarefas' ? 'Tarefas' : 'Time Block'}
+            </h2>
+            <p className="text-xs" style={{ color: 'var(--muted)' }}>
+              {tasksTab === 'tarefas' ? `${tasks.length} pendente${tasks.length !== 1 ? 's' : ''}` : 'IA organiza seu tempo'}
+            </p>
+          </div>
+          {tasksTab === 'tarefas' && (
+            <div className="flex gap-2">
+              <button onClick={loadTasks} className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
+                <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              </button>
+              <button onClick={() => setShowModal(true)}
+                className="btn-glow h-9 px-4 rounded-xl flex items-center gap-2 text-white text-sm"
+                style={{ fontFamily: 'Inter, sans-serif' }}>
+                <Plus size={15} /> Nova
+              </button>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
-          <button onClick={loadTasks} className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--card)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-3">
+          <button onClick={() => setTasksTab('tarefas')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
+            style={{ background: tasksTab==='tarefas' ? 'var(--blue)' : 'var(--bg)', color: tasksTab==='tarefas' ? 'white' : 'var(--muted)', border: `1px solid ${tasksTab==='tarefas' ? 'var(--blue)' : 'var(--border)'}`, fontFamily: 'Inter' }}>
+            <CheckSquare size={12} /> Tarefas
           </button>
-          <button onClick={() => setShowModal(true)}
-            className="btn-glow h-9 px-4 rounded-xl flex items-center gap-2 text-white text-sm"
-            style={{ fontFamily: 'Inter, sans-serif' }}>
-            <Plus size={15} /> Nova
+          <button onClick={() => setTasksTab('timeblock')}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
+            style={{ background: tasksTab==='timeblock' ? 'var(--blue)' : 'var(--bg)', color: tasksTab==='timeblock' ? 'white' : 'var(--muted)', border: `1px solid ${tasksTab==='timeblock' ? 'var(--blue)' : 'var(--border)'}`, fontFamily: 'Inter' }}>
+            <Clock size={12} /> ⏰ Time Block
           </button>
         </div>
       </div>
 
+      {tasksTab === 'timeblock' ? (
+        <TimeBlockPanel tasks={tasks} />
+      ) : (
       <div className="flex-1 overflow-y-auto px-4 pt-4">
         {loading ? (
           <div className="flex flex-col gap-3">
@@ -359,6 +382,8 @@ export default function TasksPanel() {
       </div>
 
       {showModal && <NewTaskModal onClose={() => setShowModal(false)} onCreated={loadTasks} />}
+      </div>
+      )}
     </div>
   );
 }
