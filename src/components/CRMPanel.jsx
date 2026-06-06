@@ -614,6 +614,12 @@ export default function CRMPanel() {
   const save = (updated) => {
     setClients(updated);
     try { localStorage.setItem('durabel_clients', JSON.stringify(updated)); } catch {}
+    // Sincroniza com Vercel KV para a Alexa Skill (silencioso)
+    fetch('/api/kv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'durabel_clients', data: updated }),
+    }).catch(() => {});
   };
 
   const handleSave = (form) => {
