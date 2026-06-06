@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, DollarSign, Clock, XCircle, CheckCircle, Plus, ChevronRight, X, FileBarChart } from 'lucide-react';
-import ReportGenerator from './ReportGenerator';
+import { TrendingUp, DollarSign, Clock, XCircle, CheckCircle, Plus, ChevronRight, X } from 'lucide-react';
 import { parseCurrency } from './CRMPanel';
 
 const MONTHS = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -160,7 +159,6 @@ export default function FinancePanel() {
   const [showModal, setShowModal] = useState(false);
   const [detail, setDetail] = useState(null); // { title, items }
   const [selectedMonth, setSelectedMonth] = useState(null);
-  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     try { const s = localStorage.getItem('durabel_proposals'); if(s) setManualProposals(JSON.parse(s)); } catch {}
@@ -171,53 +169,39 @@ export default function FinancePanel() {
     try { localStorage.setItem('durabel_proposals', JSON.stringify(updated)); } catch {}
   };
 
-  // Expande clientes com múltiplos serviços em linhas individuais
+  // Um cliente = uma proposta com valor total dos serviços
   const allProposals = useMemo(() => {
     const results = [];
     try {
       const clients = JSON.parse(localStorage.getItem('durabel_clients') || '[]');
       const now = new Date().getMonth();
-
       clients.forEach(c => {
         const status = crmToStatus(c.status);
         if (!status) return;
-
-        const items = c.serviceItems || [];
-        if (items.length > 0) {
-          // Múltiplos serviços — cada um vira uma linha
-          items.forEach(item => {
-            if (item.name || item.value) {
-              results.push({
-                id: `crm_${c.id}_${item.name}`,
-                client: c.name + (c.building ? ` — ${c.building}` : ''),
-                service: item.name,
-                value: parseCurrency(item.value),
-                status,
-                month: now,
-                source: 'crm',
-              });
-            }
-          });
-        } else if (c.value) {
-          // Compatibilidade com registro antigo (campo único)
-          results.push({
-            id: `crm_${c.id}`,
-            client: c.name + (c.building ? ` — ${c.building}` : ''),
-            service: c.service || '',
-            value: parseCurrency(c.value),
-            status,
-            month: now,
-            source: 'crm',
-          });
-        }
+        const items = (c.serviceItems || []).filter(i => i.name || i.value);
+        const totalValue = items.reduce((s, i) => s + parseCurrency(i.value), 0) || parseCurrency(c.value || '');
+        const serviceLabel = items.map(i => i.name).filter(Boolean).join(', ') || c.service || '';
+        results.push({
+          id: 'crm_' + c.id,
+          client: c.name + (c.building ? ' — ' + c.building : ''),
+          serviceLabel,
+          serviceItems: items,
+          value: totalValue,
+          status,
+          month: now,
+          source: 'crm',
+        });
       });
-    } catch {}
-
-    // Manuais
+    } catch(e) {}
     manualProposals.forEach(p => {
-      results.push({ ...p, value: parseCurrency(p.value), source: p.source || 'manual' });
+      results.push({
+        ...p,
+        value: parseCurrency(p.value),
+        serviceLabel: p.service || '',
+        serviceItems: p.service ? [{ name: p.service, value: p.value }] : [],
+        source: p.source || 'manual',
+      });
     });
-
     return results;
   }, [manualProposals]);
 
@@ -240,10 +224,22 @@ export default function FinancePanel() {
   const serviceRanking = useMemo(() => {
     const map = {};
     fechadas.forEach(p => {
-      const key = p.service || 'Não especificado';
-      if (!map[key]) map[key] = { count: 0, total: 0 };
-      map[key].count++;
-      map[key].total += p.value;
+      const items = p.serviceItems || [];
+      if (items.length > 0) {
+        // Distribui o valor total proporcional entre os serviços
+        const valPerItem = p.value / items.length;
+        items.forEach(item => {
+          const key = item.name || 'Não especificado';
+          if (!map[key]) map[key] = { count: 0, total: 0 };
+          map[key].count++;
+          map[key].total += parseCurrency(item.value) || valPerItem;
+        });
+      } else {
+        const key = p.serviceLabel || 'Não especificado';
+        if (!map[key]) map[key] = { count: 0, total: 0 };
+        map[key].count++;
+        map[key].total += p.value;
+      }
     });
     return Object.entries(map).sort((a,b) => b[1].total - a[1].total).slice(0, 5);
   }, [fechadas]);
@@ -264,17 +260,12 @@ export default function FinancePanel() {
         <div>
           <h2 className="font-bold text-base" style={{ fontFamily: 'Syne, sans-serif' }}>Resultados</h2>
           <p className="text-xs" style={{ color: 'var(--muted)' }}>
-            {allProposals.filter(p=>p.source==='crm').length} do CRM · {manualProposals.length} manuais
+            {allProposals.filter(p=>p.source==='crm').length} cliente{allProposals.filter(p=>p.source==='crm').length !== 1 ? 's' : ''} do CRM · {manualProposals.length} manuais
           </p>
         </div>
         <button onClick={() => setShowModal(true)}
           className="btn-glow h-9 px-4 rounded-xl flex items-center gap-1.5 text-white text-sm" style={{ fontFamily: 'Inter' }}>
           <Plus size={14} /> Registrar
-        </button>
-        <button onClick={() => setShowReport(true)}
-          className="h-9 px-3 rounded-xl flex items-center gap-1.5 text-sm font-semibold"
-          style={{ background: 'rgba(0,187,255,0.1)', border: '1px solid rgba(0,187,255,0.25)', color: '#00BBFF', fontFamily: 'Inter' }}>
-          <FileBarChart size={14} /> IA
         </button>
       </div>
 
@@ -284,16 +275,16 @@ export default function FinancePanel() {
         <div className="grid grid-cols-2 gap-2">
           <KpiCard icon={TrendingUp} label="Taxa de Conversão" value={`${conversion}%`}
             sub={`${fechadas.length} de ${total}`} color="#0077FF"
-            onClick={() => setDetail({ title: 'Propostas Fechadas', items: fechadas.map(p=>({client:p.client,service:p.service,value:p.value,month:p.month,color:'#10B981'})) })} />
+            onClick={() => setDetail({ title: 'Propostas Fechadas', items: fechadas.map(p=>({client:p.client,service:p.serviceLabel,value:p.value,month:p.month,color:'#10B981'})) })} />
           <KpiCard icon={DollarSign} label="Faturado" value={fmtShort(totalFaturado)}
             sub="propostas fechadas" color="#10B981"
-            onClick={() => setDetail({ title: 'Detalhes Faturamento', items: fechadas.map(p=>({client:p.client,service:p.service,value:p.value,month:p.month,color:'#10B981'})) })} />
+            onClick={() => setDetail({ title: 'Detalhes Faturamento', items: fechadas.map(p=>({client:p.client,service:p.serviceLabel,value:p.value,month:p.month,color:'#10B981'})) })} />
           <KpiCard icon={Clock} label="Pipeline" value={fmtShort(totalPipeline)}
             sub={`${enviadas.length} em aberto`} color="#F59E0B"
-            onClick={() => setDetail({ title: 'Pipeline — Em Negociação', items: enviadas.map(p=>({client:p.client,service:p.service,value:p.value,color:'#F59E0B'})) })} />
+            onClick={() => setDetail({ title: 'Pipeline — Em Negociação', items: enviadas.map(p=>({client:p.client,service:p.serviceLabel,value:p.value,color:'#F59E0B'})) })} />
           <KpiCard icon={XCircle} label="Taxa de Perda" value={`${taxaPerda}%`}
             sub={`${perdidas.length} perdidas`} color="#EF4444"
-            onClick={() => setDetail({ title: 'Propostas Perdidas', items: perdidas.map(p=>({client:p.client,service:p.service,value:p.value,color:'#EF4444'})) })} />
+            onClick={() => setDetail({ title: 'Propostas Perdidas', items: perdidas.map(p=>({client:p.client,service:p.serviceLabel,value:p.value,color:'#EF4444'})) })} />
         </div>
 
         {/* Ticket médio */}
@@ -362,7 +353,7 @@ export default function FinancePanel() {
                   <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: 'var(--text)', fontFamily: 'Inter' }}>{p.client}</p>
-                    {p.service && <p className="text-xs truncate" style={{ color: 'var(--muted)' }}>{p.service}</p>}
+                    {p.serviceLabel && <p className="text-xs truncate" style={{ color: 'var(--muted)' }}>{p.serviceLabel.length > 50 ? p.serviceLabel.slice(0,50)+'…' : p.serviceLabel}</p>}
                   </div>
                   <span className="text-xs font-bold flex-shrink-0" style={{ color, fontFamily: 'Syne' }}>
                     {p.value > 0 ? fmtShort(p.value) : '—'}
@@ -383,7 +374,6 @@ export default function FinancePanel() {
 
       {showModal && <NewProposalModal onClose={() => setShowModal(false)} onSave={p => saveManual([{...p,id:Date.now().toString(),...p}, ...manualProposals])} />}
       {detail && <DetailModal title={detail.title} items={detail.items} onClose={() => setDetail(null)} />}
-      {showReport && <ReportGenerator allProposals={allProposals} onClose={() => setShowReport(false)} />}
       {selectedMonth !== null && (
         <DetailModal
           title={`${MONTHS[selectedMonth]} — Faturamento`}
