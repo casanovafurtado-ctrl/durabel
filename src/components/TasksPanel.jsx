@@ -277,6 +277,8 @@ export default function TasksPanel() {
 
   return (
     <div className="flex flex-col h-full">
+
+      {/* Header */}
       <div className="px-4 pt-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -284,7 +286,9 @@ export default function TasksPanel() {
               {tasksTab === 'tarefas' ? 'Tarefas' : 'Time Block'}
             </h2>
             <p className="text-xs" style={{ color: 'var(--muted)' }}>
-              {tasksTab === 'tarefas' ? `${tasks.length} pendente${tasks.length !== 1 ? 's' : ''}` : 'IA organiza seu tempo'}
+              {tasksTab === 'tarefas'
+                ? `${tasks.length} pendente${tasks.length !== 1 ? 's' : ''}`
+                : 'IA organiza seu tempo'}
             </p>
           </div>
           {tasksTab === 'tarefas' && (
@@ -302,7 +306,6 @@ export default function TasksPanel() {
           )}
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-2 mb-3">
           <button onClick={() => setTasksTab('tarefas')}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
@@ -317,71 +320,70 @@ export default function TasksPanel() {
         </div>
       </div>
 
+      {/* Conteúdo */}
       {tasksTab === 'timeblock' ? (
         <TimeBlockPanel tasks={tasks} />
       ) : (
-      <div className="flex-1 overflow-y-auto px-4 pt-4">
-        {loading ? (
-          <div className="flex flex-col gap-3">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'var(--card)' }} />
-            ))}
-          </div>
-        ) : (
-          <>
-            {tasks.length === 0 && completedTasks.length === 0 ? (
-              <div className="text-center py-16">
-                <CheckSquare size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
-                <p style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>Nenhuma tarefa pendente</p>
-                <p className="text-sm mt-1" style={{ color: 'var(--dim)' }}>Peça para a DURABEL criar uma!</p>
-              </div>
-            ) : (
-              <>
-                {tasks.map(t => (
-                  <TaskItem
-                    key={t.id}
-                    task={t}
-                    onComplete={removeTask}
-                    onDelete={removeTask}
-                    onRefresh={loadTasks}
-                  />
-                ))}
+        <div className="flex-1 overflow-y-auto px-4 pt-4">
+          {loading ? (
+            <div className="flex flex-col gap-3">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="h-16 rounded-xl animate-pulse" style={{ background: 'var(--card)' }} />
+              ))}
+            </div>
+          ) : (
+            <>
+              {tasks.length === 0 && completedTasks.length === 0 ? (
+                <div className="text-center py-16">
+                  <CheckSquare size={36} style={{ color: 'var(--dim)', margin: '0 auto 12px' }} />
+                  <p style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>Nenhuma tarefa pendente</p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--dim)' }}>Peça para a DURABEL criar uma!</p>
+                </div>
+              ) : (
+                <>
+                  {tasks.map(t => (
+                    <TaskItem
+                      key={t.id}
+                      task={t}
+                      onComplete={removeTask}
+                      onDelete={removeTask}
+                      onRefresh={loadTasks}
+                    />
+                  ))}
 
-                {completedTasks.length > 0 && (
-                  <div className="mt-4 pb-4">
-                    <button onClick={() => setShowCompleted(s => !s)}
-                      className="flex items-center gap-2 mb-3 w-full text-left"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                      <span style={{ color: 'var(--dim)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em' }}>
-                        {showCompleted ? '▾' : '▸'} CONCLUÍDAS · {completedTasks.length}
-                      </span>
-                    </button>
-                    {showCompleted && completedTasks.map(t => (
-                      <div key={t.id} className="flex gap-3 items-start p-3 rounded-xl mb-2"
-                        style={{ background: 'var(--card)', border: '1px solid var(--border)', opacity: 0.55 }}>
-                        <CheckCircle2 size={18} style={{ color: '#10B981', flexShrink: 0, marginTop: 1 }} />
-                        <div className="flex-1">
-                          <p className="text-sm line-through"
-                            style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
-                            {t.title}
-                          </p>
-                          {t.due && (
-                            <p className="text-xs mt-0.5" style={{ color: 'var(--dim)' }}>
-                              📅 {t.due.split('T')[0].split('-').reverse().join('/')}
+                  {completedTasks.length > 0 && (
+                    <div className="mt-4 pb-4">
+                      <button onClick={() => setShowCompleted(s => !s)}
+                        className="flex items-center gap-2 mb-3 w-full text-left"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                        <span style={{ color: 'var(--dim)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em' }}>
+                          {showCompleted ? '▾' : '▸'} CONCLUÍDAS · {completedTasks.length}
+                        </span>
+                      </button>
+                      {showCompleted && completedTasks.map(t => (
+                        <div key={t.id} className="flex gap-3 items-start p-3 rounded-xl mb-2"
+                          style={{ background: 'var(--card)', border: '1px solid var(--border)', opacity: 0.55 }}>
+                          <CheckCircle2 size={18} style={{ color: '#10B981', flexShrink: 0, marginTop: 1 }} />
+                          <div className="flex-1">
+                            <p className="text-sm line-through"
+                              style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
+                              {t.title}
                             </p>
-                          )}
+                            {t.due && (
+                              <p className="text-xs mt-0.5" style={{ color: 'var(--dim)' }}>
+                                📅 {t.due.split('T')[0].split('-').reverse().join('/')}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </div>
-
-      </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {showModal && <NewTaskModal onClose={() => setShowModal(false)} onCreated={loadTasks} />}
