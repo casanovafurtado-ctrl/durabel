@@ -230,11 +230,39 @@
         },
         {
           "name": "AMAZON.CancelIntent",
-          "samples": []
+          "samples": [
+            "cancelar",
+            "não",
+            "não quero",
+            "deixa pra lá",
+            "esquece",
+            "não precisa",
+            "tá bom assim",
+            "dispensado"
+          ]
         },
         {
           "name": "AMAZON.StopIntent",
-          "samples": []
+          "samples": [
+            "parar",
+            "para",
+            "fechar",
+            "encerrar",
+            "tchau",
+            "até logo",
+            "até mais",
+            "obrigado",
+            "não obrigado",
+            "é isso",
+            "só isso",
+            "por enquanto é isso",
+            "pode fechar",
+            "tudo bem",
+            "valeu",
+            "pode sair",
+            "tem mais não",
+            "não tem mais"
+          ]
         }
       ]
     }
