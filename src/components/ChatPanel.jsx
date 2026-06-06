@@ -153,7 +153,10 @@ export default function ChatPanel() {
       for (let i = 0; i < event.results.length; i++) {
         if (event.results[i].isFinal) final += event.results[i][0].transcript + ' ';
       }
-      if (final.trim()) setInput(prev => (prev ? prev.trim() + ' ' : '') + final.trim());
+      if (final.trim()) {
+        const fixed = fixDurabelName(final.trim());
+        setInput(prev => (prev ? prev.trim() + ' ' : '') + fixed);
+      }
     };
 
     recognition.onerror = (e) => {
@@ -162,7 +165,6 @@ export default function ChatPanel() {
     };
 
     recognition.onend = () => {
-      // Só atualiza estado se ainda está "escutando" — evita conflito com stopMic
       if (listeningRef.current) stopMic();
     };
 
@@ -187,10 +189,12 @@ export default function ChatPanel() {
     const content = text || input.trim();
     if (!content || loading) return;
 
-    // Para o microfone — usa ref para garantir valor atual
-    if (listeningRef.current) {
-      stopMic();
-    }
+    // SEMPRE para o mic ao enviar — usa refs diretamente para evitar stale closure
+    try { recognitionRef.current?.abort(); } catch {}
+    try { recognitionRef.current?.stop(); } catch {}
+    recognitionRef.current = null;
+    listeningRef.current = false;
+    setListening(false);
 
     setInput('');
     setLoading(true);
