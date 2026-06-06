@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Send, Mic, MicOff, Sparkles, Volume2, VolumeX, Calendar, X } from 'lucide-react';
-import BriefingModal, { fmtEventTime, matchClient, timeUntil } from './BriefingModal';
+import BriefingModal, { fmtEventTime, timeUntil } from './BriefingModal';
 
 // Remove markdown symbols from AI responses
 function cleanMarkdown(text) {
@@ -51,6 +51,14 @@ function Message({ msg }) {
         {msg.content}
       </div>
     </div>
+      {showBriefingModal && upcomingEvent && (
+        <BriefingModal
+          event={upcomingEvent}
+          clients={crmClients}
+          minutes={savedMinutes}
+          tasks={[]}
+          onClose={() => setShowBriefingModal(false)} />
+      )}
   );
 }
 
@@ -66,12 +74,12 @@ export default function ChatPanel() {
   const [listening, setListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [speaking, setSpeaking] = useState(false);
-  const [voiceError, setVoiceError] = useState('');
   const [upcomingEvent, setUpcomingEvent] = useState(null);
   const [dismissedBanner, setDismissedBanner] = useState(false);
   const [showBriefingModal, setShowBriefingModal] = useState(false);
   const [crmClients, setCrmClients] = useState([]);
   const [savedMinutes, setSavedMinutes] = useState([]);
+  const [voiceError, setVoiceError] = useState('');
   const audioRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -87,7 +95,7 @@ export default function ChatPanel() {
     listeningRef.current = listening;
   }, [listening]);
 
-  // Carrega próximo evento e dados CRM para o banner
+  // Carrega próximo evento de reunião e dados CRM para o banner
   useEffect(() => {
     const load = async () => {
       try {
@@ -98,12 +106,12 @@ export default function ChatPanel() {
         const data = await res.json();
         const now = new Date();
         const in24h = new Date(now.getTime() + 24 * 3600000);
+        const keywords = ['reunião','reuniao','meeting','call','apresentação','assembleia','consulta','workshop','treinamento','perícia'];
         const next = (data.events || []).find(ev => {
           try {
             const dt = ev.start?.dateTime ? new Date(ev.start.dateTime) : new Date(ev.start?.date);
             const title = (ev.summary || '').toLowerCase();
-            const keywords = ['reunião','reuniao','visita','vistoria','meeting','call','apresentação','inspeção','assembleia','consulta','workshop','treinamento','laudo','perícia'];
-            const isMeeting = keywords.some(k => title.includes(k)) || !!ev.location || (ev.attendees?.length||0) > 1 || !!ev.start?.dateTime;
+            const isMeeting = keywords.some(k => title.includes(k)) || !!ev.location || (ev.attendees?.length||0) > 1;
             return dt >= now && dt <= in24h && isMeeting;
           } catch { return false; }
         });
@@ -171,6 +179,11 @@ export default function ChatPanel() {
   const sendMessage = useCallback(async (text) => {
     const content = text || input.trim();
     if (!content || loading) return;
+
+    // Para o microfone — usa ref para garantir valor atual
+    if (listeningRef.current) {
+      stopMic();
+    }
 
     setInput('');
     setLoading(true);
@@ -435,14 +448,6 @@ export default function ChatPanel() {
           </button>
         </div>
       </div>
-      {showBriefingModal && upcomingEvent && (
-        <BriefingModal
-          event={upcomingEvent}
-          clients={crmClients}
-          minutes={savedMinutes}
-          tasks={[]}
-          onClose={() => setShowBriefingModal(false)} />
-      )}
     </div>
   );
 }
