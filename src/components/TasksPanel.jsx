@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, CalendarPlus, Clock } from 'lucide-react';
+import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, CalendarPlus, Clock, RotateCcw } from 'lucide-react';
 import TimeBlockPanel from './TimeBlockPanel';
 
 function TaskItem({ task, onComplete, onDelete, onRefresh }) {
@@ -282,6 +282,40 @@ export default function TasksPanel() {
 
   const removeTask = (id) => setTasks(prev => prev.filter(t => t.id !== id));
 
+const handleReactivate = async (task) => {
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reactivate', taskId: task.id, listId: task.listId }),
+      });
+      loadTasks();
+    } catch {}
+  };
+
+  const handleDeleteCompleted = async (task) => {
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', taskId: task.id, listId: task.listId }),
+      });
+      setCompletedTasks(prev => prev.filter(t => t.id !== task.id));
+    } catch {}
+  };
+
+  const handleClearAllCompleted = async () => {
+    if (!window.confirm(`Excluir todas as ${completedTasks.length} tarefas concluídas?`)) return;
+    await Promise.all(completedTasks.map(t =>
+      fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', taskId: t.id, listId: t.listId }),
+      }).catch(() => {})
+    ));
+    setCompletedTasks([]);
+  };
+  
   return (
     <div className="flex flex-col h-full">
 
@@ -360,18 +394,27 @@ export default function TasksPanel() {
 
                   {completedTasks.length > 0 && (
                     <div className="mt-4 pb-4">
-                      <button onClick={() => setShowCompleted(s => !s)}
-                        className="flex items-center gap-2 mb-3 w-full text-left"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                        <span style={{ color: 'var(--dim)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em' }}>
-                          {showCompleted ? '▾' : '▸'} CONCLUÍDAS · {completedTasks.length}
-                        </span>
-                      </button>
+                      <div className="flex items-center justify-between mb-3">
+                        <button onClick={() => setShowCompleted(s => !s)}
+                          className="flex items-center gap-2"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                          <span style={{ color: 'var(--dim)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em' }}>
+                            {showCompleted ? '▾' : '▸'} CONCLUÍDAS · {completedTasks.length}
+                          </span>
+                        </button>
+                        {showCompleted && (
+                          <button onClick={handleClearAllCompleted}
+                            className="text-xs px-2 py-1 rounded-lg font-semibold"
+                            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontFamily: 'Inter' }}>
+                            Limpar todas
+                          </button>
+                        )}
+                      </div>
                       {showCompleted && completedTasks.map(t => (
                         <div key={t.id} className="flex gap-3 items-start p-3 rounded-xl mb-2"
-                          style={{ background: 'var(--card)', border: '1px solid var(--border)', opacity: 0.55 }}>
+                          style={{ background: 'var(--card)', border: '1px solid var(--border)', opacity: 0.7 }}>
                           <CheckCircle2 size={18} style={{ color: '#10B981', flexShrink: 0, marginTop: 1 }} />
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <p className="text-sm line-through"
                               style={{ color: 'var(--muted)', fontFamily: 'Inter, sans-serif' }}>
                               {t.title}
@@ -381,6 +424,20 @@ export default function TasksPanel() {
                                 📅 {t.due.split('T')[0].split('-').reverse().join('/')}
                               </p>
                             )}
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <button onClick={() => handleReactivate(t)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center"
+                              title="Reativar tarefa"
+                              style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)' }}>
+                              <RotateCcw size={12} />
+                            </button>
+                            <button onClick={() => { if (window.confirm(`Excluir "${t.title}"?`)) handleDeleteCompleted(t); }}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center"
+                              title="Excluir tarefa"
+                              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
+                              <Trash2 size={12} />
+                            </button>
                           </div>
                         </div>
                       ))}
