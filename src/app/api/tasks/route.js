@@ -39,6 +39,15 @@ export async function POST(req) {
       return Response.json({ success: true });
     }
 
+    if (body.action === 'reactivate') {
+      await tasks.tasks.patch({
+        tasklist: body.listId || '@default',
+        task: body.taskId,
+        resource: { status: 'needsAction', completed: null },
+      });
+      return Response.json({ success: true });
+    }
+
     if (body.action === 'update') {
       const resource = { title: body.title, notes: body.notes };
       if (body.due) {
