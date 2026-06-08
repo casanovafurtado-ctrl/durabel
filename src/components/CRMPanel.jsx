@@ -386,7 +386,7 @@ function ClientModal({ client, onClose, onSave }) {
 }
 
 // ─── Card de Cliente ───────────────────────────────────
-function ClientCard({ client, onEdit, onExport, onWhatsApp }) {
+function ClientCard({ client, onEdit, onExport, onWhatsApp, onDelete }) {
   const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[client.status] || STATUS_CONFIG.prospecto;
   const items = client.serviceItems || [];
@@ -507,6 +507,11 @@ function ClientCard({ client, onEdit, onExport, onWhatsApp }) {
                 className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1"
                 style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: 'Inter' }}>
                 ✏️ Editar
+              </button>
+                <button onClick={() => { if (window.confirm(`Excluir ${client.name}?`)) onDelete(client.id); }}
+                className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontFamily: 'Inter' }}>
+                <Trash2 size={12} /> Excluir
               </button>
             </div>
           </div>
@@ -637,6 +642,10 @@ export default function CRMPanel() {
     else save([{ ...form, id: Date.now().toString(), createdAt: new Date().toISOString(), lastContact: new Date().toISOString() }, ...clients]);
     setEditing(null); setShowModal(false);
   };
+
+  const handleDelete = (id) => {
+  save(clients.filter(c => c.id !== id));
+};
 
   const handleWhatsApp = async (client) => {
     const service = (client.serviceItems || [])[0]?.name || client.service || 'nossos serviços';
@@ -810,7 +819,8 @@ Gere a mensagem de follow-up.` }],
               <ClientCard key={c.id} client={c}
                 onEdit={c => { setEditing(c); setShowModal(true); }}
                 onExport={exportClientPDF}
-                onWhatsApp={handleWhatsApp} />
+                onWhatsApp={handleWhatsApp}
+                onDelete={handleDelete} />
             ))
           )
         ) : (
