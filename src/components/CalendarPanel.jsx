@@ -151,7 +151,7 @@ function EventCard({ event, onDelete, onEdit, onBriefing }) {
             style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>
             <Pencil size={12} />
           </button>
-          <button onClick={() => onDelete && onDelete(event.id)}
+          <button onClick={() => { if (window.confirm(`Excluir "${event.title}"?`)) onDelete && onDelete(event.id); }}
             className="w-7 h-7 rounded-lg flex items-center justify-center"
             style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
             <Trash2 size={12} />
