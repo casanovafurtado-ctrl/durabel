@@ -104,10 +104,6 @@ export async function POST(req) {
       return Response.json({ content });
     }
 
-    }
-
-    const client = new Anthropic({ apiKey: anthropicKey });
-
     // Monta contexto com dados do CRM
     let crmContext = '';
     if (crmData?.clients?.length) {
