@@ -84,11 +84,13 @@ export async function POST(req) {
       anthropicKey = process.env.ANTHROPIC_API_KEY;
     }
 
-    if (!anthropicKey) {
+        if (!anthropicKey) {
       return Response.json({
         content: '⚠️ Chave da IA não configurada. Vá em Config → Chaves API → Claude AI e adicione sua chave Anthropic.',
       });
     }
+
+    const client = new Anthropic({ apiKey: anthropicKey });
 
     // systemOverride — usado pelo Relatório, TimeBlock, Briefing, Follow-up
     if (systemOverride) {
@@ -100,6 +102,8 @@ export async function POST(req) {
       });
       const content = response.content.find(b => b.type === 'text')?.text || '';
       return Response.json({ content });
+    }
+
     }
 
     const client = new Anthropic({ apiKey: anthropicKey });
