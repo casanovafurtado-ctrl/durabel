@@ -189,14 +189,14 @@ export default function FinancePanel() {
         const items = (c.serviceItems || []).filter(i => i.name || i.value);
         const totalValue = items.reduce((s, i) => s + parseCurrency(i.value), 0) || parseCurrency(c.value || '');
         const serviceLabel = items.map(i => i.name).filter(Boolean).join(', ') || c.service || '';
-        results.push({
+       results.push({
           id: 'crm_' + c.id,
           client: c.name + (c.building ? ' — ' + c.building : ''),
           serviceLabel,
           serviceItems: items,
           value: totalValue,
           status,
-          month: now,
+          month: c.createdAt ? new Date(c.createdAt).getMonth() : now,
           source: 'crm',
         });
       });
@@ -363,8 +363,16 @@ export default function FinancePanel() {
               const color = p.status === 'fechada' ? '#10B981' : p.status === 'perdida' ? '#EF4444' : '#F59E0B';
               const services = p.serviceItems?.filter(i => i.name) || [];
               return (
-                <div key={p.id} className="flex items-start gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-                  <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: color }} />
+               <div key={p.id} className="flex items-start gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
+                  {p.source === 'manual' ? (
+                    <button onClick={() => { if (window.confirm(`Excluir proposta de ${p.client}?`)) saveManual(manualProposals.filter(m => m.id !== p.id)); }}
+                      className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 mt-1"
+                      style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
+                      <X size={10} />
+                    </button>
+                  ) : (
+                    <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: color }} />
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold" style={{ color: 'var(--text)', fontFamily: 'Inter' }}>{p.client}</p>
                     {services.length > 0 ? (
