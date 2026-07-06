@@ -294,7 +294,8 @@ export default function FinancePanel() {
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-4">
 
         {/* KPIs — clicáveis */}
-        <KpiCard icon={TrendingUp} label="Taxa de Conversão" value={`${conversion}%`}
+        <div className="grid grid-cols-2 gap-2">
+          <KpiCard icon={TrendingUp} label="Taxa de Conversão" value={`${conversion}%`}
             sub={`${fechadas.length} de ${total}`} color="#0077FF"
             onClick={() => setDetail({ title: 'Propostas Fechadas', items: fechadas.map(p=>({id:p.id,source:p.source,client:p.client,service:p.serviceLabel,value:p.value,month:p.month,color:'#10B981'})) })} />
           <KpiCard icon={DollarSign} label="Faturado" value={fmtShort(totalFaturado)}
