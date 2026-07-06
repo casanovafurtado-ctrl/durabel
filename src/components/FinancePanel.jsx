@@ -250,12 +250,12 @@ export default function FinancePanel() {
   }, [fechadas]);
 
   // 3. Meta mensal
-  const metaMensal = useMemo(() => {
+  const [metaMensal, setMetaMensal] = useState(() => {
     try {
       const s = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       return parseCurrency(s.meta_mensal || '0');
     } catch { return 0; }
-  }, []);
+  });
   const [metaInput, setMetaInput] = useState('');
   const [editingMeta, setEditingMeta] = useState(false);
   const mesAtual = new Date().getMonth();
@@ -276,14 +276,15 @@ export default function FinancePanel() {
   const previsao90 = Math.round(totalPipeline * Math.min((conversion / 100) * 1.6, 0.95));
 
   const saveMeta = (valor) => {
+    const parsed = parseCurrency(valor);
     try {
       const s = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
       s.meta_mensal = valor;
       localStorage.setItem('durabel_settings', JSON.stringify(s));
     } catch {}
+    setMetaMensal(parsed);
     setEditingMeta(false);
   };
-
   // Ranking de serviços
   const serviceRanking = useMemo(() => {
     const map = {};
