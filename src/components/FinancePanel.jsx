@@ -18,7 +18,7 @@ const fmtCurrency = (v) => v > 0 ? `R$ ${Number(v).toLocaleString('pt-BR',{minim
 const fmtShort = (v) => v >= 1000 ? `R$${(v/1000).toFixed(1)}k` : `R$${v.toFixed(0)}`;
 
 // ─── Modal de detalhes ─────────────────────────────────
-function DetailModal({ title, items, onClose }) {
+function DetailModal({ title, items, onClose, onDelete, onEdit }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center" style={{ background: 'rgba(0,0,0,0.7)' }} onClick={onClose}>
       <div className="w-full max-w-lg rounded-t-3xl pb-8 flex flex-col" style={{ background: 'var(--card)', maxHeight: '80vh' }} onClick={e => e.stopPropagation()}>
@@ -37,9 +37,18 @@ function DetailModal({ title, items, onClose }) {
                 {item.service && <p className="text-xs truncate" style={{ color: 'var(--muted)' }}>{item.service}</p>}
                 {item.month !== undefined && <p className="text-xs" style={{ color: 'var(--dim)' }}>{MONTHS[item.month]}</p>}
               </div>
-              <span className="font-bold text-sm flex-shrink-0" style={{ color: item.color || '#10B981', fontFamily: 'Syne' }}>
-                {item.value > 0 ? fmtCurrency(item.value) : '—'}
-              </span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="font-bold text-sm" style={{ color: item.color || '#10B981', fontFamily: 'Syne' }}>
+                  {item.value > 0 ? fmtCurrency(item.value) : '—'}
+                </span>
+                {item.source === 'manual' && onDelete && (
+                  <button onClick={() => { if (window.confirm(`Excluir proposta de ${item.client}?`)) { onDelete(item.id); onClose(); } }}
+                    className="w-6 h-6 rounded-lg flex items-center justify-center"
+                    style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }}>
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
           {items.length > 0 && (
@@ -285,19 +294,18 @@ export default function FinancePanel() {
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6 space-y-4">
 
         {/* KPIs — clicáveis */}
-        <div className="grid grid-cols-2 gap-2">
-          <KpiCard icon={TrendingUp} label="Taxa de Conversão" value={`${conversion}%`}
+        <KpiCard icon={TrendingUp} label="Taxa de Conversão" value={`${conversion}%`}
             sub={`${fechadas.length} de ${total}`} color="#0077FF"
-            onClick={() => setDetail({ title: 'Propostas Fechadas', items: fechadas.map(p=>({client:p.client,service:p.serviceLabel,value:p.value,month:p.month,color:'#10B981'})) })} />
+            onClick={() => setDetail({ title: 'Propostas Fechadas', items: fechadas.map(p=>({id:p.id,source:p.source,client:p.client,service:p.serviceLabel,value:p.value,month:p.month,color:'#10B981'})) })} />
           <KpiCard icon={DollarSign} label="Faturado" value={fmtShort(totalFaturado)}
             sub="propostas fechadas" color="#10B981"
-            onClick={() => setDetail({ title: 'Detalhes Faturamento', items: fechadas.map(p=>({client:p.client,service:p.serviceLabel,value:p.value,month:p.month,color:'#10B981'})) })} />
+            onClick={() => setDetail({ title: 'Detalhes Faturamento', items: fechadas.map(p=>({id:p.id,source:p.source,client:p.client,service:p.serviceLabel,value:p.value,month:p.month,color:'#10B981'})) })} />
           <KpiCard icon={Clock} label="Pipeline" value={fmtShort(totalPipeline)}
             sub={`${enviadas.length} em aberto`} color="#F59E0B"
-            onClick={() => setDetail({ title: 'Pipeline — Em Negociação', items: enviadas.map(p=>({client:p.client,service:p.serviceLabel,value:p.value,color:'#F59E0B'})) })} />
+            onClick={() => setDetail({ title: 'Pipeline — Em Negociação', items: enviadas.map(p=>({id:p.id,source:p.source,client:p.client,service:p.serviceLabel,value:p.value,color:'#F59E0B'})) })} />
           <KpiCard icon={XCircle} label="Taxa de Perda" value={`${taxaPerda}%`}
             sub={`${perdidas.length} perdidas`} color="#EF4444"
-            onClick={() => setDetail({ title: 'Propostas Perdidas', items: perdidas.map(p=>({client:p.client,service:p.serviceLabel,value:p.value,color:'#EF4444'})) })} />
+            onClick={() => setDetail({ title: 'Propostas Perdidas', items: perdidas.map(p=>({id:p.id,source:p.source,client:p.client,service:p.serviceLabel,value:p.value,color:'#EF4444'})) })} />
         </div>
 
         {/* Ticket médio */}
@@ -412,7 +420,8 @@ export default function FinancePanel() {
       </div>
 
       {showModal && <NewProposalModal onClose={() => setShowModal(false)} onSave={p => saveManual([{...p,id:Date.now().toString(),...p}, ...manualProposals])} />}
-      {detail && <DetailModal title={detail.title} items={detail.items} onClose={() => setDetail(null)} />}
+      {detail && <DetailModal title={detail.title} items={detail.items} onClose={() => setDetail(null)}
+        onDelete={(id) => saveManual(manualProposals.filter(m => m.id !== id))} />}
       {showReport && <ReportGenerator allProposals={allProposals} onClose={() => setShowReport(false)} />}
       {selectedMonth !== null && (
         <DetailModal
