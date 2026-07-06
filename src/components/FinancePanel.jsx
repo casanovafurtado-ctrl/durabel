@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, DollarSign, Clock, XCircle, CheckCircle, Plus, ChevronRight, X, FileBarChart } from 'lucide-react';
+import { TrendingUp, DollarSign, Clock, XCircle, CheckCircle, Plus, ChevronRight, X, FileBarChart, Target, ArrowUp, ArrowDown, Minus, Calendar } from 'lucide-react';
 import ReportGenerator from './ReportGenerator';
 import { parseCurrency } from './CRMPanel';
 
@@ -237,6 +237,53 @@ export default function FinancePanel() {
   const byMonth = Array(12).fill(0);
   fechadas.forEach(p => { if (p.month >= 0 && p.month < 12) byMonth[p.month] += p.value; });
 
+  // 1. Tempo médio de fechamento
+  const tempoMedioFechamento = useMemo(() => {
+    const comData = fechadas.filter(p => p.createdAt);
+    if (comData.length === 0) return null;
+    const dias = comData.map(p => {
+      const criado = new Date(p.createdAt);
+      const fechado = new Date(p.updatedAt || p.createdAt);
+      return Math.max(0, Math.round((fechado - criado) / 86400000));
+    });
+    return Math.round(dias.reduce((s,d) => s+d, 0) / dias.length);
+  }, [fechadas]);
+
+  // 3. Meta mensal
+  const metaMensal = useMemo(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
+      return parseCurrency(s.meta_mensal || '0');
+    } catch { return 0; }
+  }, []);
+  const [metaInput, setMetaInput] = useState('');
+  const [editingMeta, setEditingMeta] = useState(false);
+  const mesAtual = new Date().getMonth();
+  const faturadoMesAtual = byMonth[mesAtual] || 0;
+  const progressoMeta = metaMensal > 0 ? Math.min((faturadoMesAtual / metaMensal) * 100, 100) : 0;
+  const metaCor = progressoMeta >= 100 ? '#10B981' : progressoMeta >= 60 ? '#F59E0B' : '#EF4444';
+
+  // 4. Comparativo mês anterior
+  const mesAnterior = mesAtual === 0 ? 11 : mesAtual - 1;
+  const faturadoMesAnterior = byMonth[mesAnterior] || 0;
+  const variacaoMes = faturadoMesAnterior > 0
+    ? Math.round(((faturadoMesAtual - faturadoMesAnterior) / faturadoMesAnterior) * 100)
+    : faturadoMesAtual > 0 ? 100 : 0;
+
+  // 7. Previsão de caixa
+  const previsao30 = Math.round(totalPipeline * (conversion / 100));
+  const previsao60 = Math.round(totalPipeline * Math.min((conversion / 100) * 1.3, 0.95));
+  const previsao90 = Math.round(totalPipeline * Math.min((conversion / 100) * 1.6, 0.95));
+
+  const saveMeta = (valor) => {
+    try {
+      const s = JSON.parse(localStorage.getItem('durabel_settings') || '{}');
+      s.meta_mensal = valor;
+      localStorage.setItem('durabel_settings', JSON.stringify(s));
+    } catch {}
+    setEditingMeta(false);
+  };
+
   // Ranking de serviços
   const serviceRanking = useMemo(() => {
     const map = {};
@@ -308,6 +355,108 @@ export default function FinancePanel() {
             sub={`${perdidas.length} perdidas`} color="#EF4444"
             onClick={() => setDetail({ title: 'Propostas Perdidas', items: perdidas.map(p=>({id:p.id,source:p.source,client:p.client,service:p.serviceLabel,value:p.value,color:'#EF4444'})) })} />
         </div>
+
+        {/* 1. Tempo médio de fechamento + 4. Comparativo mês anterior */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-2xl p-3" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                <Clock size={16} style={{ color: '#8B5CF6' }} />
+              </div>
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--text)', fontFamily: 'Syne' }}>
+              {tempoMedioFechamento !== null ? `${tempoMedioFechamento}d` : '—'}
+            </p>
+            <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--muted)' }}>Tempo médio fechamento</p>
+            <p className="text-xs mt-0.5" style={{ color: '#8B5CF6' }}>do cadastro ao fechamento</p>
+          </div>
+
+          <div className="rounded-2xl p-3" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                style={{ background: variacaoMes >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${variacaoMes >= 0 ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}>
+                {variacaoMes > 0 ? <ArrowUp size={16} style={{ color: '#10B981' }} /> : variacaoMes < 0 ? <ArrowDown size={16} style={{ color: '#EF4444' }} /> : <Minus size={16} style={{ color: 'var(--muted)' }} />}
+              </div>
+            </div>
+            <p className="text-xl font-bold" style={{ color: variacaoMes >= 0 ? '#10B981' : '#EF4444', fontFamily: 'Syne' }}>
+              {variacaoMes > 0 ? '+' : ''}{variacaoMes}%
+            </p>
+            <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--muted)' }}>vs mês anterior</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--dim)' }}>{MONTHS[mesAnterior]}: {fmtShort(faturadoMesAnterior)}</p>
+          </div>
+        </div>
+
+        {/* 3. Meta mensal */}
+        <div className="rounded-2xl p-4" style={{ background: 'var(--card)', border: `1px solid ${metaCor}33` }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Target size={14} style={{ color: metaCor }} />
+              <p className="text-xs font-bold tracking-widest" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>META MENSAL — {MONTHS[mesAtual]}</p>
+            </div>
+            <button onClick={() => { setMetaInput(''); setEditingMeta(true); }}
+              className="text-xs px-2 py-1 rounded-lg font-semibold"
+              style={{ background: 'rgba(0,119,255,0.1)', border: '1px solid rgba(0,119,255,0.2)', color: 'var(--blue)', fontFamily: 'Inter' }}>
+              {metaMensal > 0 ? 'Editar' : 'Definir meta'}
+            </button>
+          </div>
+          {editingMeta ? (
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: 'var(--muted)' }}>R$</span>
+                <input value={metaInput} onChange={e => { const d=e.target.value.replace(/\D/g,''); if(!d){setMetaInput('');return;} setMetaInput((parseInt(d,10)/100).toLocaleString('pt-BR',{minimumFractionDigits:2})); }}
+                  placeholder="0,00" autoFocus
+                  className="w-full rounded-xl pl-9 pr-3 py-2 text-sm"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)', fontFamily: 'Inter' }} />
+              </div>
+              <button onClick={() => saveMeta(metaInput)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-white"
+                style={{ background: 'var(--blue)', fontFamily: 'Inter' }}>Salvar</button>
+              <button onClick={() => setEditingMeta(false)}
+                className="px-3 py-2 rounded-xl text-sm"
+                style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--muted)' }}>✕</button>
+            </div>
+          ) : metaMensal > 0 ? (
+            <>
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-bold" style={{ color: metaCor, fontFamily: 'Syne' }}>{fmtCurrency(faturadoMesAtual)}</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--muted)', fontFamily: 'Syne' }}>{fmtCurrency(metaMensal)}</span>
+              </div>
+              <div className="h-3 rounded-full overflow-hidden" style={{ background: 'var(--bg)' }}>
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${progressoMeta}%`, background: `linear-gradient(90deg, ${metaCor}, ${metaCor}88)` }} />
+              </div>
+              <p className="text-xs mt-2 text-right font-semibold" style={{ color: metaCor }}>
+                {progressoMeta >= 100 ? '🎉 Meta atingida!' : `${Math.round(progressoMeta)}% — faltam ${fmtCurrency(metaMensal - faturadoMesAtual)}`}
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-center py-2" style={{ color: 'var(--dim)' }}>Defina uma meta para acompanhar seu progresso mensal</p>
+          )}
+        </div>
+
+        {/* 7. Previsão de caixa */}
+        {totalPipeline > 0 && conversion > 0 && (
+          <div className="rounded-2xl p-4" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar size={14} style={{ color: 'var(--blue)' }} />
+              <h3 className="text-xs font-bold tracking-widest" style={{ color: 'var(--muted)', letterSpacing: '0.1em' }}>PREVISÃO DE CAIXA</h3>
+            </div>
+            <p className="text-xs mb-3" style={{ color: 'var(--dim)' }}>
+              Pipeline de {fmtShort(totalPipeline)} com {conversion}% de conversão histórica
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {[[30, previsao30], [60, previsao60], [90, previsao90]].map(([dias, valor]) => (
+                <div key={dias} className="rounded-xl p-2.5 text-center" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                  <p className="text-xs font-bold" style={{ color: 'var(--blue)', fontFamily: 'Syne' }}>{fmtShort(valor)}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{dias} dias</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs mt-2" style={{ color: 'var(--dim)' }}>
+              * Estimativa baseada na taxa de conversão histórica. Valores aproximados.
+            </p>
+          </div>
+        )}
 
         {/* Ticket médio */}
         <div className="rounded-2xl p-3 flex items-center justify-between"
