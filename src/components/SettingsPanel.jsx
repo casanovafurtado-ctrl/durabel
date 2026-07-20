@@ -306,7 +306,42 @@ export default function SettingsPanel() {
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('prefs');
+  const [pushAtivo, setPushAtivo] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
 
+  useEffect(() => {
+    // Verifica se já tem notificações ativas
+    if ('Notification' in window && Notification.permission === 'granted') {
+      setPushAtivo(true);
+    }
+  }, []);
+
+  const togglePush = async () => {
+    setPushLoading(true);
+    try {
+      if (pushAtivo) {
+        // Desativar
+        await fetch('/api/push', { method: 'DELETE' });
+        setPushAtivo(false);
+      } else {
+        // Ativar — registra service worker e pede permissão
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') { setPushLoading(false); return; }
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        });
+        await fetch('/api/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscription: sub }),
+        });
+        setPushAtivo(true);
+      }
+    } catch (e) { console.error(e); }
+    setPushLoading(false);
+  };
   useEffect(() => {
     async function load() {
       try {
@@ -396,7 +431,30 @@ export default function SettingsPanel() {
 
             {activeTab === 'keys'
               ? API_SECTIONS.map(s => <AccordionSection key={s.id} section={s} settings={settings} onChange={handleChange} isAPI={true} />)
-              : PREF_SECTIONS.map(s => <AccordionSection key={s.id} section={s} settings={settings} onChange={handleChange} isAPI={false} />)
+              : <>
+                  {/* Toggle notificações push */}
+                  <div className="rounded-2xl mb-3 p-4" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                          <Bell size={16} style={{ color: '#EF4444' }} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text)', fontFamily: 'Syne' }}>Notificações Push</p>
+                          <p className="text-xs" style={{ color: 'var(--muted)' }}>{pushAtivo ? 'Ativas — recebendo alertas' : 'Desativadas'}</p>
+                        </div>
+                      </div>
+                      <button onClick={togglePush} disabled={pushLoading}
+                        className="relative w-12 h-6 rounded-full transition-all"
+                        style={{ background: pushAtivo ? '#10B981' : 'var(--border)', cursor: pushLoading ? 'not-allowed' : 'pointer' }}>
+                        <div className="absolute top-1 w-4 h-4 rounded-full bg-white transition-all"
+                          style={{ left: pushAtivo ? '26px' : '4px' }} />
+                      </button>
+                    </div>
+                  </div>
+                  {PREF_SECTIONS.map(s => <AccordionSection key={s.id} section={s} settings={settings} onChange={handleChange} isAPI={false} />)}
+                </>
+            }
             }
           </>
         )}
