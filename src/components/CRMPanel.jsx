@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Building2, ChevronRight, X, Save, MessageCircle, Download, Phone, Trash2, ChevronDown, ChevronUp, Bell, Clock, CheckCheck, Sparkles } from 'lucide-react';
 import { exportClientPDF } from '@/lib/pdfExport';
+import { useSession } from 'next-auth/react';
 
 const STATUS_CONFIG = {
   prospecto:   { label: 'Prospecto',         color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
@@ -627,6 +628,7 @@ export default function CRMPanel() {
   const [followupDays, setFollowupDays] = useState(7);
   const [generatingMsg, setGeneratingMsg] = useState(null);
   const [generatedMsgs, setGeneratedMsgs] = useState({});
+  const { data: session } = useSession();
 
   useEffect(() => {
     try { const s = localStorage.getItem('durabel_clients'); if (s) setClients(JSON.parse(s)); } catch {}
@@ -635,6 +637,11 @@ export default function CRMPanel() {
   const save = (updated) => {
     setClients(updated);
     try { localStorage.setItem('durabel_clients', JSON.stringify(updated)); } catch {}
+    fetch('/api/kv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: `durabel_clients_${session?.user?.email || 'default'}`, data: updated }),
+    }).catch(() => {});
   };
 
   const handleSave = (form) => {
