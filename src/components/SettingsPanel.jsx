@@ -455,7 +455,6 @@ export default function SettingsPanel() {
                   {PREF_SECTIONS.map(s => <AccordionSection key={s.id} section={s} settings={settings} onChange={handleChange} isAPI={false} />)}
                 </>
             }
-            }
           </>
         )}
       </div>
