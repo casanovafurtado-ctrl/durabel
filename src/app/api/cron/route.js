@@ -1,27 +1,29 @@
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { Redis } from '@upstash/redis';
-import webpush from 'web-push';
 
 function getRedis() {
   try { return Redis.fromEnv(); } catch { return null; }
 }
 
-webpush.setVapidDetails(
-  'mailto:felipe@durar.com.br',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
-
 async function enviarNotificacao(subscription, title, body) {
   try {
-    await webpush.sendNotification(
-      subscription,
-      JSON.stringify({ title, body, icon: '/icons/icon-192.png' })
-    );
+    const payload = JSON.stringify({ title, body, icon: '/icons/icon-192.png' });
+    const { endpoint, keys } = subscription;
+    
+    // Usa a API do browser push diretamente via fetch
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'TTL': '86400',
+      },
+      body: payload,
+    });
   } catch {}
 }
 
 export async function GET(req) {
-  // Verifica se é chamada autorizada do Vercel Cron
   const authHeader = req.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: 'Não autorizado' }, { status: 401 });
@@ -30,7 +32,6 @@ export async function GET(req) {
   const redis = getRedis();
   if (!redis) return Response.json({ ok: true });
 
-  // Lista todos os usuários com push ativo
   const keys = await redis.keys('durabel_push_*');
 
   for (const key of keys) {
@@ -38,10 +39,8 @@ export async function GET(req) {
     const subRaw = await redis.get(key);
     if (!subRaw) continue;
     const subscription = typeof subRaw === 'string' ? JSON.parse(subRaw) : subRaw;
-
     const settings = await redis.get(`durabel_settings_${email}`) || {};
 
-    // Verifica tarefas vencendo
     const tasks = await redis.get(`durabel_tasks_${email}`) || [];
     const hoje = new Date();
     const amanha = new Date(hoje.getTime() + 86400000);
@@ -57,7 +56,6 @@ export async function GET(req) {
       );
     }
 
-    // Verifica follow-ups pendentes
     const clients = await redis.get(`durabel_clients_${email}`) || [];
     const diasConfig = parseInt((settings.pref_followupdays || '7 dias').split(' ')[0]);
     const followups = (clients || []).filter(c =>
