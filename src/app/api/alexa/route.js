@@ -128,7 +128,7 @@ export async function POST(req) {
       // Tarefas urgentes do KV
       let tarefaFrase = '';
       try {
-        const tasks = await getKVData('durabel_tasks') || [];
+        const tasks = await getKVData('durabel_tasks_casanovafurtado@gmail.com') || [];
         const pending = tasks.filter(t => !t.completed);
         const urgentes = pending.filter(t => {
           if (!t.due) return false;
@@ -188,7 +188,7 @@ export async function POST(req) {
     // ─── INTENTS ───────────────────────────────────────────
 
     if (intentName === 'AgendaHojeIntent') {
-      const events = await getKVData('durabel_calendar') || [];
+      const events = await getKVData('durabel_calendar_casanovafurtado@gmail.com') || [];
       const hoje = eventosHoje(events);
       if (!hoje.length) return alexaResponse('Sua agenda está livre hoje!');
       if (hoje.length === 1) return alexaResponse(`Você tem um compromisso hoje: ${hoje[0].summary}${hoje[0].start?.dateTime ? ' às ' + fmtHora(hoje[0].start.dateTime) : ''}.`);
@@ -196,7 +196,7 @@ export async function POST(req) {
     }
 
     if (intentName === 'AgendaSemanaIntent') {
-      const events = await getKVData('durabel_calendar') || [];
+      const events = await getKVData('durabel_calendar_casanovafurtado@gmail.com') || [];
       const agora = new Date();
       const em7dias = new Date(agora.getTime() + 7 * 86400000);
       const proximos = events.filter(ev => {
@@ -218,7 +218,7 @@ export async function POST(req) {
     }
 
     if (intentName === 'ProximoEventoIntent') {
-      const events = await getKVData('durabel_calendar') || [];
+      const events = await getKVData('durabel_calendar_casanovafurtado@gmail.com') || [];
       const proximo = events.find(ev => new Date(ev.start?.dateTime || ev.start?.date) > new Date());
       if (!proximo) return alexaResponse('Não há próximos compromissos na agenda.');
       const dia = new Date(proximo.start?.dateTime || proximo.start?.date).toLocaleDateString('pt-BR', { timeZone: 'America/Recife', weekday: 'long', day: '2-digit', month: 'long' });
@@ -226,14 +226,14 @@ export async function POST(req) {
     }
 
     if (intentName === 'TarefasIntent') {
-      const tasks = await getKVData('durabel_tasks') || [];
+      const tasks = await getKVData('durabel_tasks_casanovafurtado@gmail.com') || [];
       const pending = tasks.filter(t => !t.completed).slice(0,3);
       if (!pending.length) return alexaResponse('Não há tarefas pendentes no momento.');
       return alexaResponse(`Você tem ${pending.length} tarefas pendentes: ${pending.map(t => t.title).join(', ')}.`);
     }
 
     if (intentName === 'ClientesIntent') {
-      const clients = await getKVData('durabel_clients') || [];
+      const clients = await getKVData('durabel_clients_casanovafurtado@gmail.com') || [];
       if (!clients.length) return alexaResponse('O CRM ainda não foi sincronizado. Abra o app DURABEL e salve um cliente.');
       const fechados = clients.filter(c => c.status === 'fechado').length;
       const pipeline = clients.filter(c => ['proposta','negociacao'].includes(c.status)).length;
@@ -241,7 +241,7 @@ export async function POST(req) {
     }
 
     if (intentName === 'FollowupIntent') {
-      const clients = await getKVData('durabel_clients') || [];
+      const clients = await getKVData('durabel_clients_casanovafurtado@gmail.com') || [];
       if (!clients.length) return alexaResponse('Abra o app DURABEL para sincronizar os clientes.');
       const pendentes = clients.filter(c => ['proposta','negociacao'].includes(c.status) && (Date.now() - new Date(c.lastContact || c.createdAt || 0)) / 86400000 >= 7);
       if (!pendentes.length) return alexaResponse('Nenhum cliente aguardando follow-up. Comunicação em dia!');
@@ -249,8 +249,8 @@ export async function POST(req) {
     }
 
     if (intentName === 'FinanceiroIntent') {
-      const clients = await getKVData('durabel_clients') || [];
-      const proposals = await getKVData('durabel_proposals') || [];
+      const clients = await getKVData('durabel_clients_casanovafurtado@gmail.com') || [];
+      const proposals = await getKVData('durabel_proposals_casanovafurtado@gmail.com') || [];
       const parseCurr = (v) => parseFloat(String(v||'').replace(/[.]/g,'').replace(',','.'))||0;
       let faturado = 0, pipeline = 0, fechados = 0, emNegociacao = 0, perdidasCount = 0;
       clients.forEach(cl => {
@@ -275,9 +275,9 @@ export async function POST(req) {
 
     if (intentName === 'ResumoDiaIntent') {
       const [events, clients, tasks] = await Promise.all([
-        getKVData('durabel_calendar'),
-        getKVData('durabel_clients'),
-        getKVData('durabel_tasks'),
+        getKVData('durabel_calendar_casanovafurtado@gmail.com'),
+        getKVData('durabel_clients_casanovafurtado@gmail.com'),
+        getKVData('durabel_tasks_casanovafurtado@gmail.com'),
       ]);
       const hoje = eventosHoje(events || []);
       const followups = (clients || []).filter(c => ['proposta','negociacao'].includes(c.status) && (Date.now() - new Date(c.lastContact || c.createdAt || 0)) / 86400000 >= 7);
