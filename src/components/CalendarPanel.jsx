@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Plus, Calendar, MapPin, Users, Trash2, Pencil } from 'lucide-react';
 import BriefingModal, { matchClient, timeUntil } from './BriefingModal';
+import { useSession } from 'next-auth/react';
 
 const MEETING_KEYWORDS = ['reunião','reuniao','meeting','call','apresentação','apresentacao','assembleia','consulta','entrevista','workshop','treinamento','capacitação','capacitacao','perícia','pericia'];
 
@@ -245,6 +246,7 @@ export default function CalendarPanel() {
   const [crmClients, setCrmClients] = useState([]);
   const [savedMinutes, setSavedMinutes] = useState([]);
   const [showPast, setShowPast] = useState(false);
+  const { data: session } = useSession();
 
   const editEvent = async (eventId, form) => {
     try {
@@ -307,7 +309,7 @@ export default function CalendarPanel() {
       await fetch('/api/kv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'durabel_calendar', data: events }),
+        body: JSON.stringify({ key: `durabel_calendar_${session?.user?.email || 'default'}`, data: events }),
       });
     } catch {}
   };
