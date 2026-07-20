@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { RefreshCw, Plus, CheckSquare, Circle, CheckCircle2, Trash2, Pencil, CalendarPlus, Clock, RotateCcw } from 'lucide-react';
 import TimeBlockPanel from './TimeBlockPanel';
+import { useSession } from 'next-auth/react';
 
 function TaskItem({ task, onComplete, onDelete, onRefresh }) {
   const [done, setDone] = useState(false);
@@ -255,6 +256,7 @@ export default function TasksPanel() {
   const [showModal, setShowModal] = useState(false);
   const [showCompleted, setShowCompleted] = useState(false);
   const [tasksTab, setTasksTab] = useState('tarefas');
+  const { data: session } = useSession();
 
   const loadTasks = async () => {
     setLoading(true);
@@ -272,7 +274,7 @@ export default function TasksPanel() {
       fetch('/api/kv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'durabel_tasks', data: pendingTasks }),
+        body: JSON.stringify({ key: `durabel_tasks_${session?.user?.email || 'default'}`, data: pendingTasks }),
       }).catch(() => {});
     } catch {}
     setLoading(false);
