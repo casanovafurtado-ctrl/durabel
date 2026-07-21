@@ -55,12 +55,15 @@ function Message({ msg }) {
 }
 
 export default function ChatPanel() {
-  const [messages, setMessages] = useState([
-    {
+  const [messages, setMessages] = useState([]);
+
+  useEffect(() => {
+    const nome = JSON.parse(localStorage.getItem('durabel_settings') || '{}').pref_name || '';
+    setMessages([{
       role: 'assistant',
-      content: 'Olá, Felipe! 👋 Sou a DURABEL, sua secretária executiva. Já estou conectada ao seu Google Calendar e Tarefas.\n\nComo posso ajudá-lo agora?',
-    }
-  ]);
+      content: `Olá${nome ? ', ' + nome : ''}! 👋 Sou a DURABEL, sua secretária executiva. Já estou conectada ao seu Google Calendar e Tarefas.\n\nComo posso ajudá-lo agora?`,
+    }]);
+  }, []);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
